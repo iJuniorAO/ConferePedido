@@ -1,11 +1,20 @@
 import streamlit as st
+import pandas as pd
 import re
 import io
 
 
 #Variaveis Iniciacao
-lojas = ["Abilio Machado", "Brigadeiro", "Pindorama", "Palmital"]
-pedido_concluido = []
+
+LOJAS = pd.DataFrame(
+    {
+        "Lojas": ["Abilio Machado", "Brigadeiro", "Cabana", "Cabral", "Caete", "Centro Betim", "Ceu Azul", "Eldorado", "Goiania", "Jardim Alterosa", "Lagoa Santa", "Laguna", "Laranjeiras", "Neves", "Nova Contagem", "Novo Progresso", "Palmital", "Para de Minas", "Pedra Azul", "Pindorama", "Santa Cruz", "Santa Helena", "São Luiz", "Serrano", "Silva Lobo", "Venda Nova", "Retirada em Loja"],
+        "Enviado": [False]*27   
+    }
+)
+
+
+
 
 # --- Função de Correção ---
 def procuranumero(linha):
@@ -32,11 +41,32 @@ st.set_page_config(page_title="Corretor de Pedidos", page_icon="📦")
 st.title("📦 Corretor de Arquivos de Pedido")
 
 
-selecao = st.multiselect("Conferir o pedido da Loja: ",lojas)
-if st.button("Escolher Loja"):
-    pedido_concluido.append(selecao)
+st.data_editor(
+    LOJAS,
+    column_config={
+        "Enviado": st.column_config.CheckboxColumn(
+            "Enviado",
+            help="Selecione as lojas enviadas",
+            default=False,
+        )
+    },
+    hide_index=True
+)
 
-st.write(pedido_concluido)
+texto_lojas = "Pedido em progresso"
+barra_lojas = st.progress(0, text=texto_lojas)
+total = len(LOJAS)
+enviados = LOJAS["Enviado"].sum()
+progresso = (enviados/total)
+barra_lojas.progress(progresso, text=texto_lojas)
+
+st.write(enviados)
+st.write(total)
+st.write(progresso)
+
+st.write(LOJAS)
+
+
 
 uploaded_file = st.file_uploader("Suba seu arquivo *.txt aqui*", type="txt")
 
@@ -49,6 +79,7 @@ if uploaded_file:
     alteracoes_feitas = 0
     erros_nao_corrigidos = []
     linhas_removidas = 0
+
 
     # Processamento
     for i, linha in enumerate(linhas):
@@ -79,7 +110,7 @@ if uploaded_file:
     col3.metric("Linhas vazias removidas", linhas_removidas)
 
     if alteracoes_feitas > 0 or linhas_removidas>0:
-        st.success(f"Foram identificadas e corrigidas {alteracoes_feitas} linhas!")
+        st.success(f"Foram identificadas e corrigidas {alteracoes_feitas+linhas_removidas} linhas!")
         
         # --- O BOTÃO DE DOWNLOAD ---
         # Preparamos o texto final
@@ -112,3 +143,7 @@ st.sidebar.markdown("""
 3. Remove linhas vazias
 4. Você baixa o arquivo pronto para uso.
 """)
+
+# --- MELHORIAS ---
+#   2. se a sigla estiver junto à descrição separar [cxBISCOITO] = [cx] [biscoito]
+
