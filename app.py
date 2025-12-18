@@ -25,7 +25,7 @@ def procuranumero(linha):
 st.set_page_config(page_title="Corretor de Pedidos", page_icon="📦")
 st.title("📦 Corretor de Arquivos de Pedido")
 
-uploaded_file = st.file_uploader("Suba seu arquivo .txt aqui", type="txt")
+uploaded_file = st.file_uploader("Suba seu arquivo *.txt aqui*", type="txt")
 
 if uploaded_file:
     # Lê as linhas do arquivo
@@ -35,12 +35,14 @@ if uploaded_file:
     linhas_novas = []
     alteracoes_feitas = 0
     erros_nao_corrigidos = []
+    linhas_removidas = 0
 
     # Processamento
     for i, linha in enumerate(linhas):
         num_l = i + 1
-        if not linha.strip():
-            linhas_novas.append("")
+
+        if linha.strip() == "":
+            linhas_removidas += 1
             continue
         
         # Tenta corrigir se o código (1ª coluna) não for número
@@ -52,18 +54,19 @@ if uploaded_file:
                 alteracoes_feitas += 1
             else:
                 linhas_novas.append(linha)
-                erros_nao_corrigidos.append(f"Linha {num_l}: Não foi possível corrigir automaticamente.")
+                erros_nao_corrigidos.append(f"Linha {num_l}: Sem correção automática:  \n{linha}.")
         else:
             linhas_novas.append(linha)
 
     # Exibição dos resultados
     st.divider()
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     col1.metric("Correções sugeridas", alteracoes_feitas)
     col2.metric("Erros manuais", len(erros_nao_corrigidos))
+    col3.metric("Linhas vazias removidas", linhas_removidas)
 
-    if alteracoes_feitas > 0:
-        st.success(f"Foram identificadas {alteracoes_feitas} linhas que podem ser corrigidas!")
+    if alteracoes_feitas > 0 or linhas_removidas>0:
+        st.success(f"Foram identificadas e corrigidas {alteracoes_feitas} linhas!")
         
         # --- O BOTÃO DE DOWNLOAD ---
         # Preparamos o texto final
@@ -93,5 +96,6 @@ st.sidebar.markdown("""
 
 1. O sistema remove espaços vazios no início.
 2. Se o código estiver grudado no texto (ex: `10CX`), ele separa (`10 CX`).
-3. Você baixa o arquivo pronto para uso.
+3. Remove linhas vazias
+4. Você baixa o arquivo pronto para uso.
 """)
