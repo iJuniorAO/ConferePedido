@@ -2,6 +2,11 @@ import streamlit as st
 import re
 import io
 
+
+#Variaveis Iniciacao
+lojas = ["Abilio Machado", "Brigadeiro", "Pindorama", "Palmital"]
+pedido_concluido = []
+
 # --- Função de Correção ---
 def procuranumero(linha):
     linha = linha.strip()
@@ -21,9 +26,17 @@ def procuranumero(linha):
             return " ".join(partes)
     return None
 
+
 # --- Interface do Aplicativo ---
 st.set_page_config(page_title="Corretor de Pedidos", page_icon="📦")
 st.title("📦 Corretor de Arquivos de Pedido")
+
+
+selecao = st.multiselect("Conferir o pedido da Loja: ",lojas)
+if st.button("Escolher Loja"):
+    pedido_concluido.append(selecao)
+
+st.write(pedido_concluido)
 
 uploaded_file = st.file_uploader("Suba seu arquivo *.txt aqui*", type="txt")
 
