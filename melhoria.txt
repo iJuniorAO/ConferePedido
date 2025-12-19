@@ -1,0 +1,8 @@
+APP
+MELHORIAS
+1. Inserido tabela das lojas que realizaram pedido,
+    Dessa forma será possível verificar quais lojam realizaram ou não pedido para que seja conferido a rota no proximo dia
+2. Inserido barra visual de lojas que realizaram pedido,
+
+
+APP2 - VERSAO SEASSION STATE - TESTE DE VARIÁVEL/LOGIN

@@ -1,6 +1,19 @@
 import streamlit as st
+import pandas as pd
 import re
+from datetime import datetime, time
 import io
+
+
+#Variaveis Iniciacao
+AGORA = datetime.now()
+PRAZO = time(10,0)
+LOJAS = pd.DataFrame(
+    {
+        "Lojas": ["Abilio Machado", "Brigadeiro", "Cabana", "Cabral", "Caete", "Centro Betim", "Ceu Azul", "Eldorado", "Goiania", "Jardim Alterosa", "Lagoa Santa", "Laguna", "Laranjeiras", "Neves", "Nova Contagem", "Novo Progresso", "Palmital", "Para de Minas", "Pedra Azul", "Pindorama", "Santa Cruz", "Santa Helena", "São Luiz", "Serrano", "Silva Lobo", "Venda Nova", "Retirada em Loja"],
+        "Pedido": [False]*27
+    }
+)
 
 # --- Função de Correção ---
 def procuranumero(linha):
@@ -25,6 +38,43 @@ def procuranumero(linha):
 st.set_page_config(page_title="Corretor de Pedidos", page_icon="📦")
 st.title("📦 Corretor de Arquivos de Pedido")
 
+# --- hora ---
+if AGORA.time() >= time(10,5):
+    st.write("❌ Prazo de Pedido finalizado!")
+elif AGORA.time() >= PRAZO:
+    st.write("🕛 Prazo de Pedido finalizado! - Tolerância 5 minutos")
+elif AGORA.time() >= time(9,45):
+    st.write("⚠️ Faltam 15min para fazerem pedidos")
+elif AGORA.time() >= time(9,0):
+    st.write("🟠 Faltam 1 hora para o prazo do pedido ")
+
+else:
+    st.write("🟢 Dentro do prazo para Pedidos")
+
+st.subheader("Lojas que realizaram pedido:")
+
+# --- Tabela ---
+lojas_editado = st.data_editor(
+    LOJAS,
+    hide_index=True
+)
+
+
+
+# --- Lojas Pedido Pronto ---
+enviados = lojas_editado["Pedido"].sum()
+total = len(lojas_editado)
+
+if enviados == total:
+    texto_lojas = f"Lojas com Pedidos Realizados: :green[{enviados}]"
+else:
+    texto_lojas = f"Lojas com Pedidos Realizados: :red[{enviados}]"
+barra_lojas = st.progress(0, text=texto_lojas)
+
+progresso = (enviados/total)
+barra_lojas.progress(progresso, text=texto_lojas)
+
+# --- Subir arquivo --- 
 uploaded_file = st.file_uploader("Suba seu arquivo *.txt aqui*", type="txt")
 
 if uploaded_file:
@@ -36,6 +86,7 @@ if uploaded_file:
     alteracoes_feitas = 0
     erros_nao_corrigidos = []
     linhas_removidas = 0
+
 
     # Processamento
     for i, linha in enumerate(linhas):
@@ -66,7 +117,7 @@ if uploaded_file:
     col3.metric("Linhas vazias removidas", linhas_removidas)
 
     if alteracoes_feitas > 0 or linhas_removidas>0:
-        st.success(f"Foram identificadas e corrigidas {alteracoes_feitas} linhas!")
+        st.success(f"Foram identificadas e corrigidas {alteracoes_feitas+linhas_removidas} linhas!")
         
         # --- O BOTÃO DE DOWNLOAD ---
         # Preparamos o texto final
@@ -88,7 +139,7 @@ if uploaded_file:
                 st.warning(erro)
 
 else:
-    st.info("Aguardando upload de arquivo para iniciar a verificação.")
+    st.info("Faça upload de arquivo para iniciar a verificação.")
 
 st.sidebar.markdown("""
 ## Correção Automática
@@ -99,3 +150,7 @@ st.sidebar.markdown("""
 3. Remove linhas vazias
 4. Você baixa o arquivo pronto para uso.
 """)
+
+# --- MELHORIAS ---
+#   2. se a sigla estiver junto à descrição separar [cxBISCOITO] = [cx] [biscoito]
+
