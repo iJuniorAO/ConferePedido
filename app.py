@@ -13,7 +13,8 @@ PRAZO = time(10,0)
 LOJAS = pd.DataFrame(
     {
         "Lojas": ["Abilio Machado", "Brigadeiro", "Cabana", "Cabral", "Caete", "Centro Betim", "Ceu Azul", "Eldorado", "Goiania", "Jardim Alterosa", "Lagoa Santa", "Laguna", "Laranjeiras", "Neves", "Nova Contagem", "Novo Progresso", "Palmital", "Para de Minas", "Pedra Azul", "Pindorama", "Santa Cruz", "Santa Helena", "São Luiz", "Serrano", "Silva Lobo", "Venda Nova", "Retirada em Loja"],
-        "Pedido": [False]*27
+        "SECO": [False]*27,
+        "CONG": [False]*27
     }
 )
 
@@ -80,7 +81,7 @@ lojas_editado = st.data_editor(
 )
 
 # --- Barra Lojas que fizeram pedidos ---
-barra_lojas_pedido()
+# barra_lojas_pedido()
 
 # --- Subir arquivo --- 
 uploaded_file = st.file_uploader("Suba seu arquivo *.txt aqui*", type="txt")
