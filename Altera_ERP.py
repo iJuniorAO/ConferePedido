@@ -5,7 +5,7 @@ import io
 #   MELHORIAS Ver. DEFINITIVA
 #   1. Filtrar df Estoq>0 no inicio para melhorar tempo de processamento  
 
-# --- DEFINIÇÕES DE FUNÇÕES E VARIÁVEIS ---
+# --- DEFINIÇÕES DE FUNÇÕES, VARIÁVEIS e CONSTANTES ---
 def abrir_txt(caminho_arquivo,colunas):
     try:
         dfLocal = pd.read_csv(caminho_arquivo, sep="|", header=None, names=colunas, encoding="latin1")
@@ -66,6 +66,26 @@ def main():
         salvar_txt(dfpesoLoja, "resultado_peso.txt")
     else:
         print(f"Erro: A coluna da loja '{loja_pedido}' não foi encontrada no arquivo.")
+def importa_pedido_loja(caminho_arquivo):
+    caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\Brigadeiro2.txt"
+    df_Import_loja = pd.read_csv(caminho_arquivo, sep="|", header=None, encoding="latin1")
+
+    #Importa e prepara o df
+    df_Import_loja[colunas_Pedidos] = (
+        df_Import_loja[0]
+        .astype(str)
+        .str.split(" ", n=2, expand=True)
+    )
+
+    df_Import_loja = df_Import_loja.drop(columns=[0,"Sigla"])
+
+    #Separa os pedidos em 2 df um com erros e outro sem erros
+    num = pd.to_numeric(df_Import_loja["QtCx"], errors="coerce")
+    df_ok = df_Import_loja[num.notna()]
+    df_erro = df_Import_loja[num.isna()]
+    df_ok.loc[:,"QtCx"] = df_ok["QtCx"].astype(float)
+    
+    return df_ok, df_erro
 
 colunas_produto = [
     "CodProduto",
@@ -90,7 +110,7 @@ colunas_produto_extra =[
     "ListaCodCaract",
     "DescComplementar"    
 ]
-Colunas_Pedidos = [
+colunas_Pedidos = [
     "QtCx",
     "Sigla",
     "Descricao"
@@ -98,7 +118,6 @@ Colunas_Pedidos = [
 
 
 # --- INÍCIO DO FLUXO PRINCIPAL ---
-
 print("\n PROGRAMA PARA CONVERTER PEDIDO.TXT PARA IMPORTAÇÃO 💾 \n\n")
 
 #   1. Abrir o arquivo de produtos.txt e produtosextra.txt atualizado (diário)
@@ -106,20 +125,20 @@ try:
     caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\NOVO\00001produto.txt"
     df = abrir_txt(caminho_arquivo,colunas_produto)
 except:
-    print("Erro ao abrir produto.txt")
+    print("❌ Erro ao abrir produto.txt")
     pass
 
 try:
     caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\NOVO\00001produtoextra.txt"
     df_extra = abrir_txt(caminho_arquivo,colunas_produto_extra)
 except:
-    print("Erro ao abrir produtoextra.txt")
+    print("❌ Erro ao abrir produtoextra.txt")
     pass
-
 
 #   --- Filtros do DF (melhora processamento) ---
 df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam"]]
 df = df[df["Fam"] != 900000008]
+df = df[df["Estoq"] > 0]
 
 
 #   2. INSERE INFORMAÇÕES DO PRODUTO_EXTRA NO PRODUTO E TRATA AS INFORMAÇÕ0ES
@@ -144,31 +163,29 @@ df["CONV"] = np.where(
     ultimo.str.isdigit(),
     ultimo,
     1
-).astype(int)
+).astype(float)
 
 #   FILTRA df e insere no df_Pedido
-df_Pedido = df[df["Estoq"] > 0]
-df_Pedido.insert(0,"Codigo", df_Pedido["CodProduto"].astype(str).str.strip().str.rjust(13, '0'))
+#df_Pedido = df[df["Estoq"] > 0]
+df_Pedido = df
+df_Pedido.insert(0,"Codigo", df_Pedido["CodProduto"].astype(str).str.rjust(13, '0'))
 df_Pedido = df_Pedido[["Codigo", "Descricao", "TIPO", "CONV"]]
-
-
-#   Separa df_Pedido em 3 Pedidos
-
-#   MUDAR
-#df_Pedido_SECO = df_Pedido[df_Pedido["TIPO"] == "SECO"]
-#df_Pedido_CONG = df_Pedido[df_Pedido["TIPO"] == "CONG"]
-#df_Pedido_PESO = df_Pedido[df_Pedido["TIPO"] == "PESO"]
-
 
 #   3 PEGA O PEDIDO DA LOJA E INSERE NO DF
 
-loja_pedido = input("\n\t🔹Digite a loja Escolhida: ")
+#loja_pedido = input("\n\t🔹Digite a loja Escolhida: ")
+loja_pedido = "teste"
+
 
 #   a. Importa Pedido_Loja
-caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\Brigadeiro.txt"
-df_Pedido_Loja = pd.read_csv(caminho_arquivo, sep="|", header=None, names=Colunas_Pedidos, encoding="latin1")
+caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\Brigadeiro2.txt"
+df_Pedido_Loja, df_Erro_Loja = importa_pedido_loja(caminho_arquivo)
 
-df_Pedido_Loja.pop("Sigla")
+if not df_Pedido_Loja.empty:
+    print(f"\n🟢 Pedido Lojas importado")
+if not df_Erro_Loja.empty:
+    print(f"❌ Linhas com Erro:\n{df_Erro_Loja}\n\n")
+
 
 #   b. Procv Pedido_loja
 df_Pedido = df_Pedido.merge(
@@ -183,12 +200,10 @@ df_Pedido = df_Pedido[df_Pedido["QtCx"].notna()]
 df_Pedido[loja_pedido] = df_Pedido["QtCx"] * df_Pedido["CONV"]
 
 #   4. PEGA OS TXT CONFORME AS 3 CLASSIFICAÇÕES (PESO/CONG/SECO)
-
 # Formatação numérica: 9 dígitos, 3 após a vírgula, trocando ponto por vírgula
 df_Pedido[loja_pedido] = df_Pedido[loja_pedido].map(
     lambda x: f"{x:09.3f}".replace(".", ",") if isinstance(x, (int, float)) else "00000,000"
 )
-
 
 df_Pedido_SECO = df_Pedido[df_Pedido["TIPO"] == "SECO"]
 df_Pedido_SECO = df_Pedido_SECO[["Codigo", loja_pedido]]
