@@ -1,201 +1,146 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
 import io
 
-# --- DEFINIÇÕES DE FUNÇÕES, VARIÁVEIS e CONSTANTES ---
-def abrir_txt(caminho_arquivo,colunas):
-    try:
-        dfLocal = pd.read_csv(caminho_arquivo, sep="|", header=None, names=colunas, encoding="latin1")
-        return dfLocal
-    except FileNotFoundError:
-        print("❗Erro: O arquivo .txt não foi encontrado.")
-def importa_pedido_loja(caminho_arquivo):
-    caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\Brigadeiro2.txt"
-    df_Import_loja = pd.read_csv(caminho_arquivo, sep="|", header=None, encoding="latin1")
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Conversor de Pedidos", layout="wide")
 
-    #Importa e prepara o df
+# --- FUNÇÕES DE PROCESSAMENTO (Adaptadas do seu arquivo original) ---
+
+def abrir_txt_st(uploaded_file, colunas):
+    """Lê o arquivo carregado no Streamlit."""
+    try:
+        return pd.read_csv(uploaded_file, sep="|", header=None, names=colunas, encoding="latin1")
+    except Exception as e:
+        st.error(f"Erro ao ler arquivo: {e}")
+        return None
+
+def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
+    """Prepara o pedido da loja a partir do arquivo enviado[cite: 2, 10]."""
+    df_Import_loja = pd.read_csv(uploaded_file, sep="|", header=None, encoding="latin1")
+    
+    # Prepara o df separando a primeira coluna [cite: 2]
     df_Import_loja[colunas_Pedidos] = (
         df_Import_loja[0]
         .astype(str)
         .str.split(" ", n=2, expand=True)
     )
+    df_Import_loja = df_Import_loja.drop(columns=[0]) # Removido 'Sigla' do drop pois ela é criada no split
 
-    df_Import_loja = df_Import_loja.drop(columns=[0,"Sigla"])
-
-    #Separa os pedidos em 2 df um com erros e outro sem erros
+    # Separa erros de quantidade [cite: 10]
     num = pd.to_numeric(df_Import_loja["QtCx"], errors="coerce")
-    df_ok = df_Import_loja[num.notna()]
-    df_erro = df_Import_loja[num.isna()]
-    df_ok.loc[:,"QtCx"] = df_ok["QtCx"].astype(float)
+    df_ok = df_Import_loja[num.notna()].copy()
+    df_erro = df_Import_loja[num.isna()].copy()
+    df_ok["QtCx"] = df_ok["QtCx"].astype(float)
     
-    return df_ok, df_erro  
-def trata_erros(dfLocal):
-    if len(dfLocal.columns) == 2:
-        dfLocal["Linha"] = dfLocal["QtCx"].fillna("").astype(str) + " " + dfLocal["Descricao"].fillna("").astype(str)
-        dfLocal = dfLocal["Linha"]
-        for i, texto in dfLocal.items():
-            print(f"[Linha {i}] - {texto} ")
+    return df_ok, df_erro
 
-    elif len(dfLocal.columns) == 6:
-        dfLocal["Linha"] = dfLocal["QtCx"].astype(str) + " " + dfLocal["Descricao"].astype(str)
-        dfLocal =  dfLocal["Linha"]
-        print(dfLocal)
+# --- INTERFACE STREAMLIT ---
+st.title("💾 Conversor de Pedidos para Importação")
 
-colunas_produto = [
-    "CodProduto",
-    "CodGrupo",
-    "Descricao",
-    "SiglaUn",
-    "MinVenda",
-    "PrecoUnPd",
-    "CodPrincProd",
-    "Estoq",
-    "Obs",
-    "Grade",
-    "Falta",
-    "Novo",
-    "Prom",
-    "DescMax",
-    "Fam"
-]
-colunas_produto_extra =[
-    "CodProduto",
-    "Fam",
-    "ListaCodCaract",
-    "DescComplementar"    
-]
-colunas_Pedidos = [
-    "QtCx",
-    "Sigla",
-    "Descricao"
-]
+# 1. UPLOAD DE ARQUIVOS (Substitui os caminhos C:\...) [cite: 5]
+st.header("Upload de Bases e Pedido")
+col1, col2, col3 = st.columns(3)
 
-# --- INÍCIO DO FLUXO PRINCIPAL ---
-print("\n PROGRAMA PARA CONVERTER PEDIDO.TXT PARA IMPORTAÇÃO 💾 \n")
+with col1:
+    f_produto = st.file_uploader("📦 Arquivo produto.txt", type="txt")
+with col2:
+    f_extra = st.file_uploader("➕ Arquivo produtoextra.txt", type="txt")
+with col3:
+    f_pedido = st.file_uploader("📝 Pedido da Loja (.txt)", type="txt")
 
-#   1. Abrir o arquivo de produtos.txt e produtosextra.txt atualizado (diário)
-try:
-    caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\NOVO\00001produto.txt"
-    df = abrir_txt(caminho_arquivo,colunas_produto)
-except:
-    print("❌ Erro ao abrir produto.txt")
-    pass
+# Definição de colunas conforme o código original [cite: 4]
+colunas_produto = ["CodProduto", "CodGrupo", "Descricao", "SiglaUn", "MinVenda", "PrecoUnPd", "CodPrincProd", "Estoq", "Obs", "Grade", "Falta", "Novo", "Prom", "DescMax", "Fam"]
+colunas_produto_extra = ["CodProduto", "Fam", "ListaCodCaract", "DescComplementar"]
+colunas_Pedidos = ["QtCx", "Sigla", "Descricao"]
 
-try:
-    caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\NOVO\00001produtoextra.txt"
-    df_extra = abrir_txt(caminho_arquivo,colunas_produto_extra)
-except:
-    print("❌ Erro ao abrir produtoextra.txt")
-    pass
+if f_produto and f_extra and f_pedido:
+    # --- PROCESSAMENTO ---
+    with st.status("Processando dados...", expanded=True) as status:
+        # Carregamento [cite: 5]
+        df = abrir_txt_st(f_produto, colunas_produto)
+        df_extra = abrir_txt_st(f_extra, colunas_produto_extra)
+        
+        # Filtros iniciais
+        df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam"]]
+        df = df[(df["Fam"] != 900000008) & (df["Estoq"] > 0)]
 
-#   --- Filtros do DF (melhora processamento) ---
-df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam"]]
-df = df[df["Fam"] != 900000008]
-df = df[df["Estoq"] > 0]
+        # Merge Produto + Extra [cite: 6]
+        df = df.merge(df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left")
 
+        # Regra de TIPO [cite: 7, 8]
+        df["TIPO"] = "SECO"
+        df.loc[df["CodGrupo"].isin([9, 14]), "TIPO"] = "CONG"
+        df.loc[df["ListaCodCaract"].astype(str).str.contains("000002"), "TIPO"] = "PESO"
 
-#   2. INSERE INFORMAÇÕES DO PRODUTO_EXTRA NO PRODUTO E TRATA AS INFORMAÇÕ0ES
-#       a. Procv Produto_extra.txt > Produto.txt
-df = df.merge(
-    df_extra[["CodProduto", "ListaCodCaract"]],
-    on = "CodProduto",
-    how="left"
-)
+        # Fator de conversão [cite: 9]
+        ultimo = df["Descricao"].astype(str).str.split().str[-1]
+        df["CONV"] = np.where(ultimo.str.isdigit(), ultimo, 1).astype(float)
 
-#       b. Coluna de Grupos seguindo a regra
-            #   1º Se for balança coluna                TIPO = PESO
-            #   2º Se fordo grupo CONG ou REFR coluna   TIPO = CONG
-            #   3º Os demais                            TIPO = SECO
-df["TIPO"] = "SECO"
-df.loc[df["CodGrupo"].isin([9,14]), "TIPO"] = "CONG"
-df.loc[df["ListaCodCaract"].astype(str).str.contains("000002"), "TIPO"] = "PESO"
+        # Padroniza código [cite: 9]
+        df_Pedido_Base = df.copy()
+        df_Pedido_Base.insert(0, "Codigo", df_Pedido_Base["CodProduto"].astype(str).str.rjust(13, '0'))
+        df_Pedido_Base = df_Pedido_Base[["Codigo", "Descricao", "TIPO", "CONV"]]
 
-#       c. Fator de conversão que é o ultimo caracter
-ultimo = (df["Descricao"].astype(str).str.split().str[-1])
-df["CONV"] = np.where(
-    ultimo.str.isdigit(),
-    ultimo,
-    1
-).astype(float)
+        # Importa Pedido da Loja [cite: 10]
+        df_Pedido_Loja, df_Erro_Qt = importa_pedido_loja_st(f_pedido, colunas_Pedidos)
 
-#   FILTRA df e insere no df_Pedido
-df_Pedido = df
-#Padroniza 13 digitos no código
-df_Pedido.insert(0,"Codigo", df_Pedido["CodProduto"].astype(str).str.rjust(13, '0'))
-df_Pedido = df_Pedido[["Codigo", "Descricao", "TIPO", "CONV"]]
+        # Procv Pedido_loja [cite: 11]
+        df_Pedido_Final = df_Pedido_Base.merge(
+            df_Pedido_Loja[["QtCx", "Descricao"]],
+            on="Descricao",
+            how="outer",
+            indicator=True
+        )
 
+        df_Erro_Desc = df_Pedido_Final[df_Pedido_Final["_merge"] == "right_only"]
+        
+        # Cálculo final 
+        df_Pedido_Final = df_Pedido_Final[df_Pedido_Final["QtCx"].notna()].copy()
+        df_Pedido_Final["TOTAL"] = df_Pedido_Final["QtCx"] * df_Pedido_Final["CONV"]
 
-#   3 PEGA O PEDIDO DA LOJA E INSERE NO DF
-#loja_pedido = input("\n\t🔹Digite a loja Escolhida: ")
-loja_pedido = "teste"
+        # Formatação numérica (00000,000) 
+        df_Pedido_Final["VALOR_STR"] = df_Pedido_Final["TOTAL"].map(
+            lambda x: f"{x:09.3f}".replace(".", ",") if isinstance(x, (int, float)) else "00000,000"
+        )
 
+        status.update(label="Processamento concluído!", state="complete")
 
-try:
-    #   a. Importa Pedido_Loja
-    caminho_arquivo = r"C:\Users\Ismael\OneDrive - Mumu\BaseDados\Brigadeiro2.txt"
-    df_Pedido_Loja, df_Erro_Qt = importa_pedido_loja(caminho_arquivo)
+    # --- EXIBIÇÃO DE ERROS ---
+    if not df_Erro_Qt.empty or not df_Erro_Desc.empty:
+        with st.expander("⚠️ Ver Erros de Importação"):
+            if not df_Erro_Qt.empty:
+                st.warning(f"Não foi possível identificar Quantidade em {len(df_Erro_Qt)} linhas.")
+                st.dataframe(df_Erro_Qt)
+            if not df_Erro_Desc.empty:
+                st.error(f"Não foi possível localizar a Descrição em {len(df_Erro_Desc)} linhas.")
+                st.dataframe(df_Erro_Desc)
 
-    if not df_Pedido_Loja.empty and df_Erro_Qt.empty:
-        print(f"\n🟢 Todos itens da Loja: {loja_pedido} importado com sucesso\n")
-    elif not df_Pedido_Loja.empty:
-        print(f"\n🟠 Pedido da Loja: '{loja_pedido}' importado com ressalva\n")
+    # --- DOWNLOADS ---
+    st.header("2. Baixar Pedidos Gerados")
+    c1, c2, c3 = st.columns(3)
 
-    #   b. Procv Pedido_loja
-    df_Pedido = df_Pedido.merge(
-        df_Pedido_Loja[["QtCx", "Descricao"]],
-        on = "Descricao",
-        how="outer",
-        indicator=True,
-    )
+    tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
+    
+    for tipo, col in tipos:
+        df_sub = df_Pedido_Final[df_Pedido_Final["TIPO"] == tipo][["Codigo", "VALOR_STR"]]
+        with col:
+            if not df_sub.empty:
+                st.success(f"Pedido {tipo} pronto!")
+                # Gera o CSV em memória para download 
+                output = io.StringIO()
+                df_sub.to_csv(output, sep="\t", index=False, header=False)
+                
+                st.download_button(
+                    label=f"📥 Baixar Pedido {tipo}",
+                    data=output.getvalue(),
+                    file_name=f"Pedido_{tipo}.txt",
+                    mime="text/plain"
+                )
+            else:
+                st.info(f"Sem itens para {tipo}")
 
-    df_Erro_Desc = df_Pedido[df_Pedido["_merge"] == "right_only"]
+else:
+    st.info("Aguardando o upload de todos os arquivos para iniciar.")
 
-
-    #   c. Insere fator de conversão
-    df_Pedido = df_Pedido[df_Pedido["QtCx"].notna()]
-    df_Pedido[loja_pedido] = df_Pedido["QtCx"] * df_Pedido["CONV"]
-
-
-    #   4. PEGA OS TXT CONFORME AS 3 CLASSIFICAÇÕES (PESO/CONG/SECO)
-    # Formatação numérica: 9 dígitos, 3 após a vírgula, trocando ponto por vírgula
-    df_Pedido[loja_pedido] = df_Pedido[loja_pedido].map(
-        lambda x: f"{x:09.3f}".replace(".", ",") if isinstance(x, (int, float)) else "00000,000"
-    )
-
-    df_Pedido_SECO = df_Pedido[df_Pedido["TIPO"] == "SECO"]
-    df_Pedido_SECO = df_Pedido_SECO[["Codigo", loja_pedido]]
-
-    df_Pedido_CONG = df_Pedido[df_Pedido["TIPO"] == "CONG"]
-    df_Pedido_CONG = df_Pedido_CONG[["Codigo", loja_pedido]]
-
-    df_Pedido_PESO = df_Pedido[df_Pedido["TIPO"] == "PESO"]
-    df_Pedido_PESO = df_Pedido_PESO[["Codigo", loja_pedido]]
-
-    if df_Pedido_PESO.empty:
-        print("🟠 [Pedido PESO]\t Não Gerado - sem Itens PESO")
-    else:
-        print("🟢 [Pedido PESO]\t Gerado com sucesso")
-        df_Pedido_PESO.to_csv("Pedido_PESO.txt", sep="\t", index=False)
-
-    if df_Pedido_SECO.empty:
-        print("🟠 [Pedido SECO]\t Não Gerado - sem Itens SECO")
-    else:
-        print("🟢 [Pedido SECO]\t Gerado com sucesso")
-
-        df_Pedido_SECO.to_csv("Pedido_SECO.txt", sep="\t", index=False)
-
-    if df_Pedido_CONG.empty:
-        print("🟠 [Pedido CONG/REFR]\t Não Gerado - sem Itens CONG/REFR")
-    else:
-        print("🟢 [Pedido CONG/REFR]\t Gerado com sucesso")
-        df_Pedido_CONG.to_csv("Pedido_CONG.txt", sep="\t", index=False)
-
-
-    if not df_Erro_Qt.empty:
-        print(f"\n❌ Não foi possível identificar Qt em {len(df_Erro_Qt)} linhas")
-        trata_erros(df_Erro_Qt)
-    if not df_Erro_Desc.empty:
-        print(f"\n❌ Não foi possível verificar descrição em {len(df_Erro_Desc)} linhas")
-        trata_erros(df_Erro_Desc)
-except:
-    print("❌ [ERRO]Não foi possível importar pedido")
