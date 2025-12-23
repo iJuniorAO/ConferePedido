@@ -39,16 +39,26 @@ def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
 # --- INTERFACE STREAMLIT ---
 st.title("💾 Conversor de Pedidos para Importação")
 
+#Tabs para base de dados e importação pedidos
+tab1,tab2 = st.tabs(["📦 Base de Dados","📝 Importação de Pedidos"])
 # 1. UPLOAD DE ARQUIVOS (Substitui os caminhos C:\...) [cite: 5]
-st.header("Upload de Bases e Pedido")
-col1, col2, col3 = st.columns(3)
+with tab1:
+    st.header("Upload de Bases de Dados")
+    #col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
+    with col1:
+        f_produto = st.file_uploader("📦 Arquivo produto.txt", type="txt")
+    with col2:
+        f_extra = st.file_uploader("➕ Arquivo produtoextra.txt", type="txt")
+#2. UPLOAD DE ARQUIVOS PEDIDO
+with tab2:
+    tabela1 = st.columns([0.2, 0.6, 0.2])
+    with tabela1[1]:
+        st.header("Upload de Pedidos da Loja")
+        f_pedido = st.file_uploader("📝 Pedido da Loja (.txt)", type="txt")
+        
 
-with col1:
-    f_produto = st.file_uploader("📦 Arquivo produto.txt", type="txt")
-with col2:
-    f_extra = st.file_uploader("➕ Arquivo produtoextra.txt", type="txt")
-with col3:
-    f_pedido = st.file_uploader("📝 Pedido da Loja (.txt)", type="txt")
+
 
 # Definição de colunas conforme o código original [cite: 4]
 colunas_produto = ["CodProduto", "CodGrupo", "Descricao", "SiglaUn", "MinVenda", "PrecoUnPd", "CodPrincProd", "Estoq", "Obs", "Grade", "Falta", "Novo", "Prom", "DescMax", "Fam"]
@@ -111,14 +121,14 @@ if f_produto and f_extra and f_pedido:
     if not df_Erro_Qt.empty or not df_Erro_Desc.empty:
         with st.expander("⚠️ Ver Erros de Importação"):
             if not df_Erro_Qt.empty:
-                st.warning(f"Não foi possível identificar Quantidade em {len(df_Erro_Qt)} linhas.")
+                st.warning(f"[{len(df_Erro_Qt)}] Linhas com erro na quantidade:")
                 st.dataframe(df_Erro_Qt)
             if not df_Erro_Desc.empty:
-                st.error(f"Não foi possível localizar a Descrição em {len(df_Erro_Desc)} linhas.")
+                st.error(f"[{len(df_Erro_Desc)}] Itens não encontrados na base de produtos:")
                 st.dataframe(df_Erro_Desc)
 
     # --- DOWNLOADS ---
-    st.header("2. Baixar Pedidos Gerados")
+    st.header("Baixar Pedidos Gerados")
     c1, c2, c3 = st.columns(3)
 
     tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
@@ -141,6 +151,8 @@ if f_produto and f_extra and f_pedido:
             else:
                 st.info(f"Sem itens para {tipo}")
 
+elif f_produto and f_extra and not f_pedido:
+    st.info("⏳ Aguardando o upload do pedido da loja para iniciar.")
 else:
-    st.info("Aguardando o upload de todos os arquivos para iniciar.")
+    st.info("⚠️ Aguardando o upload do arquivos iniciais para iniciar.")
 
