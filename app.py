@@ -47,7 +47,6 @@ elif AGORA.time() >= time(9,45):
     st.write("⚠️ Faltam 15min para fazerem pedidos")
 elif AGORA.time() >= time(9,0):
     st.write("🟠 Faltam 1 hora para o prazo do pedido ")
-
 else:
     st.write("🟢 Dentro do prazo para Pedidos")
 
