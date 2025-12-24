@@ -4,12 +4,21 @@ import numpy as np
 import io
 import re
 
+#   MELHORIAS
+#       Lista > Importar produto.txt e criar criar lista no aplicativo
+#       Importação de Pedidos > Importação automática do arquivo txt
+#       Importação de Pedidos > Processamento concluído somente mostrar após botão do download aparecer
+#       Importação de Pedidos > Mostrar qt de linhas que foi puxado
+#       Importação de Pedidos > Mostrar qt de linhas com erro na qtde
+#       Importação de Pedidos > Botão > Usar IA para tentar corrigir descrição com valores mostraods
+
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="Conversor de Pedidos",
     layout="wide")
 
-# --- FUNÇÕES DE PROCESSAMENTO (Adaptadas do seu arquivo original) ---
+# --- DEFINIÇÕES DE FUNÇÕES, VARIÁVEIS e CONSTANTES ---
 def abrir_txt_st(uploaded_file, colunas):
     """Lê o arquivo carregado no Streamlit."""
     try:
@@ -34,7 +43,6 @@ def procuranumero(linha):
             partes.insert(0, numero)
             return " ".join(partes)
     return None
-
 def limpa_df(uploaded_file):
     # Lê as linhas do arquivo
     conteudo = uploaded_file.read().decode("utf-8")
@@ -68,13 +76,11 @@ def limpa_df(uploaded_file):
             linhas_novas.append(linha)
         texto_corrigido = "\n".join(linhas_novas)
     return io.StringIO(texto_corrigido)
-
-
 def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
-    """Prepara o pedido da loja a partir do arquivo enviado[cite: 2, 10]."""
+    """Prepara o pedido da loja a partir do arquivo enviado"""
     df_Import_loja = pd.read_csv(uploaded_file, sep="|", header=None, encoding="latin1")
     
-    # Prepara o df separando a primeira coluna [cite: 2]
+    # Prepara o df separando a primeira coluna
     df_Import_loja[colunas_Pedidos] = (
         df_Import_loja[0]
         .astype(str)
@@ -82,7 +88,7 @@ def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
     )
     df_Import_loja = df_Import_loja.drop(columns=[0]) # Removido 'Sigla' do drop pois ela é criada no split
 
-    # Separa erros de quantidade [cite: 10]
+    # Separa erros de quantidade
     num = pd.to_numeric(df_Import_loja["QtCx"], errors="coerce")
     df_ok = df_Import_loja[num.notna()].copy()
     df_erro = df_Import_loja[num.isna()].copy()
@@ -90,7 +96,7 @@ def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
     
     return df_ok, df_erro
 
-# Definição de colunas conforme o código original [cite: 4]
+# Definição de colunas conforme o código original
 colunas_produto = ["CodProduto", "CodGrupo", "Descricao", "SiglaUn", "MinVenda", "PrecoUnPd", "CodPrincProd", "Estoq", "Obs", "Grade", "Falta", "Novo", "Prom", "DescMax", "Fam"]
 colunas_produto_extra = ["CodProduto", "Fam", "ListaCodCaract", "DescComplementar"]
 colunas_Pedidos = ["QtCx", "Sigla", "Descricao"]
@@ -100,7 +106,7 @@ st.title("💾 Conversor de Pedidos para Importação")
 
 #Tabs para base de dados e importação pedidos
 tab1,tab2 = st.tabs(["📦 Base de Dados","📝 Importação de Pedidos"])
-# 1. UPLOAD DE ARQUIVOS (Substitui os caminhos C:\...) [cite: 5]
+# 1. UPLOAD DE ARQUIVOS (Substitui os caminhos C:\...)
 with tab1:
     st.header("Upload de Bases de Dados")
     #col1, col2, col3 = st.columns(3)
@@ -116,7 +122,6 @@ with tab2:
         st.header("Upload de Pedidos da Loja")
         f_pedido = st.file_uploader("📝 Pedido da Loja (.txt)", type="txt")
         
-
 if f_produto and f_extra and f_pedido:
     # --- PROCESSAMENTO ---
     with st.status("Processando dados...", expanded=True) as status:
@@ -128,28 +133,30 @@ if f_produto and f_extra and f_pedido:
         df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam"]]
         df = df[(df["Fam"] != 900000008) & (df["Estoq"] > 0)]
 
-        # Merge Produto + Extra [cite: 6]
+        # Merge Produto + Extra 
         df = df.merge(df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left")
 
-        # Regra de TIPO [cite: 7, 8]
+        # Regra de TIPO
         df["TIPO"] = "SECO"
         df.loc[df["CodGrupo"].isin([9, 14]), "TIPO"] = "CONG"
         df.loc[df["ListaCodCaract"].astype(str).str.contains("000002"), "TIPO"] = "PESO"
 
-        # Fator de conversão [cite: 9]
+        # Fator de conversão
         ultimo = df["Descricao"].astype(str).str.split().str[-1]
         df["CONV"] = np.where(ultimo.str.isdigit(), ultimo, 1).astype(float)
 
-        # Padroniza código [cite: 9]
+        # Padroniza código
         df_Pedido_Base = df.copy()
         df_Pedido_Base.insert(0, "Codigo", df_Pedido_Base["CodProduto"].astype(str).str.rjust(13))
         df_Pedido_Base = df_Pedido_Base[["Codigo", "Descricao", "TIPO", "CONV"]]
 
-        # Importa Pedido da Loja [cite: 10]
+        # Limpa o arquivo de pedido
+            #remove linhas em branco e corrige códigos inválidos
         f_pedido = limpa_df(f_pedido)
+        # Importa Pedido da Loja
         df_Pedido_Loja, df_Erro_Qt = importa_pedido_loja_st(f_pedido, colunas_Pedidos)
 
-        # Procv Pedido_loja [cite: 11]
+        # Procv Pedido_loja
         df_Pedido_Final = df_Pedido_Base.merge(
             df_Pedido_Loja[["QtCx", "Descricao"]],
             on="Descricao",
@@ -218,7 +225,6 @@ elif f_produto and f_extra and not f_pedido:
         erro = 1
     if erro == 0:
         st.warning("✅ Arquivos de Base carregados com sucesso.\n Aguardando o upload do pedido da loja para iniciar.")
-
 else:
     st.info("⚠️ Aguardando o upload do arquivos iniciais para iniciar.")
 

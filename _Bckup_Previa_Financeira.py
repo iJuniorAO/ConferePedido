@@ -59,7 +59,3 @@ fluxo_dia['Saldo_Acumulado'] = fluxo_dia['Balanço'].cumsum() + valor_inicial
 
 print(f"Valor Inicial: R${valor_inicial:.2f}")
 print(fluxo_dia)
-
-
-
-
