@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import io
-import re
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -17,58 +16,8 @@ def abrir_txt_st(uploaded_file, colunas):
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
         return None
-def procuranumero(linha):
-    linha = linha.strip()
-    partes = linha.split()
-    if not partes:
-        return None
-    codigo_cru = partes.pop(0)
-
-    if re.search(r"\d", codigo_cru):
-        match = re.match(r"(\d+)(.*)", codigo_cru)
-        if match:
-            numero = match.group(1)
-            resto_texto = match.group(2)
-            if resto_texto:
-                partes.insert(0, resto_texto)
-            partes.insert(0, numero)
-            return " ".join(partes)
-    return None
-
-def limpa_df(uploaded_file):
-    # Lê as linhas do arquivo
-    conteudo = uploaded_file.read().decode("utf-8")
-    linhas = conteudo.splitlines()
-    
-    linhas_novas = []
-    alteracoes_feitas = 0
-    erros_nao_corrigidos = []
-    linhas_removidas = 0
-
-
-    # Processamento
-    for i, linha in enumerate(linhas):
-        num_l = i + 1
-
-        if linha.strip() == "":
-            linhas_removidas += 1
-            continue
-        
-        # Tenta corrigir se o código (1ª coluna) não for número
-        colunas = linha.split()
-        if len(colunas) >= 1 and not colunas[0].isdigit():
-            sugestao = procuranumero(linha)
-            if sugestao:
-                linhas_novas.append(sugestao)
-                alteracoes_feitas += 1
-            else:
-                linhas_novas.append(linha)
-                erros_nao_corrigidos.append(f"Linha {num_l}: Sem correção automática:  \n{linha}.")
-        else:
-            linhas_novas.append(linha)
-        texto_corrigido = "\n".join(linhas_novas)
-    return io.StringIO(texto_corrigido)
-
+def limpa_df():
+    pass
 
 def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
     """Prepara o pedido da loja a partir do arquivo enviado[cite: 2, 10]."""
@@ -120,10 +69,10 @@ with tab2:
 if f_produto and f_extra and f_pedido:
     # --- PROCESSAMENTO ---
     with st.status("Processando dados...", expanded=True) as status:
-        # Carregamento
+        # Carregamento [cite: 5]
         df = abrir_txt_st(f_produto, colunas_produto)
         df_extra = abrir_txt_st(f_extra, colunas_produto_extra)
-
+        
         # Filtros iniciais
         df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam"]]
         df = df[(df["Fam"] != 900000008) & (df["Estoq"] > 0)]
@@ -146,7 +95,6 @@ if f_produto and f_extra and f_pedido:
         df_Pedido_Base = df_Pedido_Base[["Codigo", "Descricao", "TIPO", "CONV"]]
 
         # Importa Pedido da Loja [cite: 10]
-        f_pedido = limpa_df(f_pedido)
         df_Pedido_Loja, df_Erro_Qt = importa_pedido_loja_st(f_pedido, colunas_Pedidos)
 
         # Procv Pedido_loja [cite: 11]
