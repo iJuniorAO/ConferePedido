@@ -4,6 +4,29 @@ import numpy as np
 import io
 import re
 
+#   MELHORIAS
+#       Mudar index e corrigir para ser igual arquivo txt
+#       # Status de carregamento - mostrar carregando e concluído quando importar txt base dados
+#       Lista > Importar produto.txt e criar criar lista no aplicativo
+#       Importação de Pedidos > Importação automática do arquivo txt
+#       Importação de Pedidos > Processamento concluído somente mostrar após botão do download aparecer
+#       Importação de Pedidos > Mostrar qt de linhas que foi puxado
+#       Importação de Pedidos > Mostrar qt de linhas com erro na qtde
+#       Importação de Pedidos > Botão > Usar IA para tentar corrigir descrição com valores mostraods
+#       Pedido NOVA
+#           7 erro qt
+#           5 erro desc
+#           16 cong
+#           28 TOTAL = PEDIDO - OK
+
+#       Alteração limpa_df
+#       2 erro qt
+#       7 erro desc
+#       19 cong
+# 
+#       Informar qt linhas no pedido q qt linhas finais
+#       st.sucess caso não ocorra nenhum erro
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="Conversor de Pedidos",
@@ -34,7 +57,6 @@ def procuranumero(linha):
             partes.insert(0, numero)
             return " ".join(partes)
     return None
-
 def limpa_df(uploaded_file):
     # Lê as linhas do arquivo
     conteudo = uploaded_file.read().decode("utf-8")
@@ -54,6 +76,10 @@ def limpa_df(uploaded_file):
             linhas_removidas += 1
             continue
         
+        #Retira linhas em branco extra
+        if linha.strip() != linha:
+            linha = linha.strip()
+       
         # Tenta corrigir se o código (1ª coluna) não for número
         colunas = linha.split()
         if len(colunas) >= 1 and not colunas[0].isdigit():
@@ -68,11 +94,10 @@ def limpa_df(uploaded_file):
             linhas_novas.append(linha)
         texto_corrigido = "\n".join(linhas_novas)
     return io.StringIO(texto_corrigido)
-
-
 def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
     """Prepara o pedido da loja a partir do arquivo enviado[cite: 2, 10]."""
     df_Import_loja = pd.read_csv(uploaded_file, sep="|", header=None, encoding="latin1")
+    Linhas_Pedidos = len(df_Import_loja)
     
     # Prepara o df separando a primeira coluna [cite: 2]
     df_Import_loja[colunas_Pedidos] = (
@@ -88,13 +113,13 @@ def importa_pedido_loja_st(uploaded_file, colunas_Pedidos):
     df_erro = df_Import_loja[num.isna()].copy()
     df_ok["QtCx"] = df_ok["QtCx"].astype(float)
     
-    return df_ok, df_erro
+    return df_ok, df_erro, Linhas_Pedidos
 
 # Definição de colunas conforme o código original [cite: 4]
 colunas_produto = ["CodProduto", "CodGrupo", "Descricao", "SiglaUn", "MinVenda", "PrecoUnPd", "CodPrincProd", "Estoq", "Obs", "Grade", "Falta", "Novo", "Prom", "DescMax", "Fam"]
 colunas_produto_extra = ["CodProduto", "Fam", "ListaCodCaract", "DescComplementar"]
 colunas_Pedidos = ["QtCx", "Sigla", "Descricao"]
-
+Linhas_Pedidos = 0
 # --- INTERFACE STREAMLIT ---
 st.title("💾 Conversor de Pedidos para Importação")
 
@@ -103,6 +128,11 @@ tab1,tab2 = st.tabs(["📦 Base de Dados","📝 Importação de Pedidos"])
 # 1. UPLOAD DE ARQUIVOS (Substitui os caminhos C:\...) [cite: 5]
 with tab1:
     st.header("Upload de Bases de Dados")
+    #Btm com link para baixar produto.txt e produtoextra.txt
+    st.subheader("Link para txt atualizado:")
+    st.link_button("Clique aqui",
+                   r"https://mumulaticinios-my.sharepoint.com/my?id=%2Fpersonal%2Fanalista%5Fadm%5Fmumix%5Fcom%5Fbr%2FDocuments%2FBaseDados%2FNOVO&ga=1"
+                   )
     #col1, col2, col3 = st.columns(3)
     col1, col2 = st.columns(2)
     with col1:
@@ -147,7 +177,7 @@ if f_produto and f_extra and f_pedido:
 
         # Importa Pedido da Loja [cite: 10]
         f_pedido = limpa_df(f_pedido)
-        df_Pedido_Loja, df_Erro_Qt = importa_pedido_loja_st(f_pedido, colunas_Pedidos)
+        df_Pedido_Loja, df_Erro_Qt, Linhas_Pedidos = importa_pedido_loja_st(f_pedido, colunas_Pedidos)
 
         # Procv Pedido_loja [cite: 11]
         df_Pedido_Final = df_Pedido_Base.merge(
@@ -169,6 +199,7 @@ if f_produto and f_extra and f_pedido:
         )
 
         status.update(label="Processamento concluído!", state="complete")
+        st.write(f"Foram importados: {Linhas_Pedidos} linhas")
 
     # --- EXIBIÇÃO DE ERROS ---
     if not df_Erro_Qt.empty or not df_Erro_Desc.empty:
@@ -178,31 +209,37 @@ if f_produto and f_extra and f_pedido:
                 st.dataframe(df_Erro_Qt)
             if not df_Erro_Desc.empty:
                 st.error(f"[{len(df_Erro_Desc)}] Itens não encontrados na base de produtos:")
-                st.dataframe(df_Erro_Desc)
+                st.dataframe(df_Erro_Desc[['Codigo', 'Descricao', 'QtCx']])
 
     # --- DOWNLOADS ---
-    st.header("Baixar Pedidos Gerados")
-    c1, c2, c3 = st.columns(3)
+    #Dict com todos os valores prontos para importar para ERP
+    Linhas_Pedidos_por_Tipo = df_Pedido_Final["TIPO"].value_counts().to_dict()
 
-    tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
-    
-    for tipo, col in tipos:
-        df_sub = df_Pedido_Final[df_Pedido_Final["TIPO"] == tipo][["Codigo", "VALOR_STR"]]
-        with col:
-            if not df_sub.empty:
-                st.success(f"Pedido {tipo} pronto!")
-                # Gera o CSV em memória para download 
-                output = io.StringIO()
-                df_sub.to_csv(output, sep="\t", index=False, header=False)
-                
-                st.download_button(
-                    label=f"📥 Baixar Pedido {tipo}",
-                    data=output.getvalue(),
-                    file_name=f"Pedido_{tipo}.txt",
-                    mime="text/plain"
-                )
-            else:
-                st.info(f"Sem itens para {tipo}")
+    #Se todas as linhas não foram importados gera erro
+    if not Linhas_Pedidos_por_Tipo:
+        st.error("ERRO NA IMPORTAÇÃO - Arquivo fora do padrão")
+    else:
+        st.header("Baixar Pedidos Gerados")
+        c1, c2, c3 = st.columns(3)
+        tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
+        
+        for tipo, col in tipos:
+            df_sub = df_Pedido_Final[df_Pedido_Final["TIPO"] == tipo][["Codigo", "VALOR_STR"]]
+            with col:
+                if not df_sub.empty:
+                    st.success(f"[{len(df_sub)}] Pedido {tipo} pronto!")
+                    # Gera o CSV em memória para download 
+                    output = io.StringIO()
+                    df_sub.to_csv(output, sep="\t", index=False, header=False)
+                    
+                    st.download_button(
+                        label=f"📥 Baixar Pedido {tipo}",
+                        data=output.getvalue(),
+                        file_name=f"Pedido_{tipo}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.info(f"Sem itens para {tipo}")
 elif f_produto and f_extra and not f_pedido:
     erro = 0
     df = abrir_txt_st(f_produto,colunas_produto)
