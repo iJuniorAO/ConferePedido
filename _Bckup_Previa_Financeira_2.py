@@ -74,6 +74,3 @@ print(f"🔹 Total de registros processados: {len(df_filtrado)}")
 print(f"🔹 Saldo Inicial: R${valor_inicial:.2f}")
 print("\n--- FLUXO DE CAIXA PROJETADO ---")
 print(fluxo_dia[['Pagar', 'Receber', 'Balanço_Diario', 'Saldo_Acumulado']])
-
-# Opcional: Salvar em CSV para conferência
-# fluxo_dia.to_csv("previsao_financeira.csv")
