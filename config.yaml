@@ -1,0 +1,29 @@
+credentials:
+  usernames:
+    ismael_adm:
+      email: analista.adm@mumix.com.br
+      name: Ismael Junior
+      password: adm123
+      role: adm
+    admin:
+      email: admin@email.com
+      name: Administrador
+      password: $2b$12$R.S1mC3.7V9K7I4Vv3F2u.z9Ym6V1H.R1V3Z3Y3Z3Y3Z3Y3Z3Y3Z3
+      role: adm
+    usuario:
+      email: user@email.com
+      name: Usuario Padrao
+      password: $2b$12$K1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1
+      role: user
+    cliente:
+      email: cliente@email.com
+      name: Cliente VIP
+      password: $2b$12$P2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2
+      role: client
+cookie:
+  expiry_days: 30
+  key: assinatura_secreta
+  name: cookie_sistema
+preauthorized:
+  emails:
+  - mels@example.com
