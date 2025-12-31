@@ -4,13 +4,13 @@ cookie:
   name: cookie_sistema
 credentials:
   usernames:
-    cliente:
+    cliente_Vip:
       email: cliente@email.com
       failed_login_attempts: 0
       logged_in: false
       name: Cliente VIP
       password: $2b$12$P2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2
-      role: client
+      role: cliente
       tag: Palmital
     ismael_adm:
       email: analista.adm@mumix.com.br

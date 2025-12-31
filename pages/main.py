@@ -74,7 +74,7 @@ if not st.session_state.get("authentication_status"):
 
 #usuário logado
 if st.session_state.get("authentication_status"):
-    st.title("Tela inicial")
+    st.title(":material/Home: Página inicial")
     username = st.session_state["username"]
 
     #Salva as permissões do usuário
@@ -82,16 +82,22 @@ if st.session_state.get("authentication_status"):
     st.session_state["role"] = user_role
     print(user_role)
 
+    if user_role == "administrador":
+        st.title(":material/Supervisor_Account: Painel de Controle")
+        st.write(f"Bem vindo :red[{username}]! O que deseja fazer hoje?")
+
+    elif user_role == "usuario":
+        st.title(":material/Badge: Painel de Controle")
+        st.write(f"Bem vindo :blue[{username}]! O que deseja fazer hoje?")
+
+    elif user_role == "cliente":
+        st.title(":material/Person: Painel de Controle")
+        st.write(f"Bem vindo :blue[{username}]! Aqui você pode acompanhar seus pedidos.")
+    st.divider()
+
     #conta SPM
     if user_role in ["administrador", "usuario"]:
         #Header de acordocom usuário:
-        if user_role == "administrador":
-            st.title(":material/Deployed_Code_Account: Painel de Controle")
-        elif user_role == "usuario":
-            st.title(":material/Person_Shield: Painel de Controle")
-        elif user_role == "cliente":
-            st.title(":material/Account_Circle: Painel de Controle")
-        st.divider()
         st.markdown("## Acessar páginas:")
 
         #Coluna paginas
@@ -118,61 +124,72 @@ if st.session_state.get("authentication_status"):
 
         st.space()
     #administração de contas, somente para adm
-    if user_role == "administrador":
-        with st.expander(":material/settings: Administração Usuários"):
-            #Cadastrar novos usuários
-            with st.expander(":material/Person_Add: Cadastro de Novos Usuário"):
-                
-                st.markdown("## Recomendações para Criar Conta:")
-                coluna1,coluna2 = st.columns(2)
-                with coluna1:
-                    st.markdown("""
-                        CAMPOS:
-                        1. Todos campos são obrigatórios:
-                        2. Não é permitido criar emails repetidos
-                        3. Não é permitido criar usuários repetidos
-                                """)
-                with coluna2:
-                    st.markdown("""                             
-                        SENHAS:
-                        1. Senhas precisam ser iguais
-                        2. Entre 8 e 20 caracteres
-                        3. Uma letra maiuscula
-                        4. Um caracter especial (@$!%*?&)
-                        """)
-                try:
-                    novo_email, novo_user, novo_name = authenticator.register_user(captcha=False, password_hint=False,
-                                                fields= {'Form name':'Cadastrar Usuário',
-                                                        'First name': 'Nome',
-                                                        'Last name': 'Sobrenome',
-                                                        'Username':'Usuário',
-                                                        'Password':'Senha',
-                                                        'Repeat password':'Repetir Senha',
-                                                        'Password hint':'Dica de Senha',
-                                                        'Register':'Registrar'}
-                                                        )
-                    #save_config(config)
-                    if novo_email and novo_user and novo_name:
-                        save_config(config)    
-                        st.success(f":material/Check: Conta: '{novo_user}' cadastrado com sucesso!")
-                except Exception as e:
-                    st.error(e)
-            #Redefinir senha
-            with st.expander(":material/Person_Edit: Redefinir Senha"):
-                try:
-                    if authenticator.reset_password(
-                        st.session_state.get("username"),
-                        fields={"Form name":"Redefinir Senha", "Current password":"Senha Atual", "New password": "Nova Senha", "Repeat password":"Repetir a Senha"},
-                        ):
-                        save_config(config)
-                        st.success("Senha modificada com sucesso")
-                        st.info("aviso")
-                except Exception as e:
-                    st.error(e)
-    #   --- CRIAR user_role cliente
-    
+        if user_role == "administrador":
+            
+            st.markdown("## Acesso Administrador:")
+            st.divider()
+            with st.expander(":material/settings: Administração Usuários"):
+                #Cadastrar novos usuários
+                with st.expander(":material/Person_Add: Cadastro de Novos Usuário"):
+                    
+                    st.markdown("## Recomendações para Criar Conta:")
+                    coluna1,coluna2 = st.columns(2)
+                    with coluna1:
+                        st.markdown("""
+                            CAMPOS:
+                            1. Todos campos são obrigatórios:
+                            2. Não é permitido criar emails repetidos
+                            3. Não é permitido criar usuários repetidos
+                                    """)
+                    with coluna2:
+                        st.markdown("""                             
+                            SENHAS:
+                            1. Senhas precisam ser iguais
+                            2. Entre 8 e 20 caracteres
+                            3. Uma letra maiuscula
+                            4. Um caracter especial (@$!%*?&)
+                            """)
+                    try:
+                        novo_email, novo_user, novo_name = authenticator.register_user(captcha=False, password_hint=False,
+                                                    fields= {'Form name':'Cadastrar Usuário',
+                                                            'First name': 'Nome',
+                                                            'Last name': 'Sobrenome',
+                                                            'Username':'Usuário',
+                                                            'Password':'Senha',
+                                                            'Repeat password':'Repetir Senha',
+                                                            'Password hint':'Dica de Senha',
+                                                            'Register':'Registrar'}
+                                                            )
+                        #save_config(config)
+                        if novo_email and novo_user and novo_name:
+                            save_config(config)    
+                            st.success(f":material/Check: Conta: '{novo_user}' cadastrado com sucesso!")
+                    except Exception as e:
+                        st.error(e)
+                #Redefinir senha
+                with st.expander(":material/Person_Edit: Redefinir Senha"):
+                    try:
+                        if authenticator.reset_password(
+                            st.session_state.get("username"),
+                            fields={"Form name":"Redefinir Senha", "Current password":"Senha Atual", "New password": "Nova Senha", "Repeat password":"Repetir a Senha"},
+                            ):
+                            save_config(config)
+                            st.success("Senha modificada com sucesso")
+                            st.info("aviso")
+                    except Exception as e:
+                        st.error(e)
+    elif user_role == "cliente":
 
-    #Logout
+
+        st.button(":material/Add_Shopping_Cart: Fazer Novo Pedido")
+        st.button(":material/Shopping_Cart: Meus Pedidos")
+
+
+
+    #   --- CRIAR user_role cliente
+
+
+    #Logout e sidebar
     with st.sidebar:
         authenticator.logout()
         st.markdown(f"# Bem vindo! **{st.session_state.get("name")}**")
@@ -186,3 +203,15 @@ elif st.session_state.get("authentication_status") is False:
 elif st.session_state.get("authentication_status") is None:
     st.info("Entre com usuário e senha")
 
+
+if False:
+    # --- RECUPERAÇÃO DE SENHA (OPCIONAL) ---
+    if not st.session_state["authentication_status"]:
+        with st.expander("Esqueci minha senha"):
+            try:
+                username_forgot, email_forgot, new_pw = authenticator.forgot_password('Recuperar')
+                if username_forgot:
+                    st.success(f'Sua nova senha é: {new_pw}')
+                    save_config(config)
+            except Exception as e:
+                st.error(e)
