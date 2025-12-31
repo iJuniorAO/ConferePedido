@@ -3,12 +3,6 @@ import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
 
-if False:
-    senhas = ['adm123']
-    hashes = stauth.Hasher.hash_passwords(senhas)
-
-    print(hashes[0])
-
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Sistema ERP Mumix", layout="wide")
 
@@ -35,6 +29,7 @@ authenticator = stauth.Authenticate(
 # --- INTERFACE DE LOGIN ---
 # Na versão nova, a função login não retorna variáveis diretamente
 authenticator.login(location='main')
+
 
 # Verificação do status de autenticação via Session State
 if st.session_state["authentication_status"]:

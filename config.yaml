@@ -1,29 +1,31 @@
+cookie:
+  expiry_days: 30
+  key: assinatura_secreta_SPM_criado_por_Ismael_adoro_pizza_la_li_lu_le_lo
+  name: cookie_sistema
 credentials:
   usernames:
-    ismael_adm:
-      email: analista.adm@mumix.com.br
-      name: Ismael Junior
-      password: adm123
-      role: adm
-    admin:
-      email: admin@email.com
-      name: Administrador
-      password: $2b$12$R.S1mC3.7V9K7I4Vv3F2u.z9Ym6V1H.R1V3Z3Y3Z3Y3Z3Y3Z3Y3Z3
-      role: adm
-    usuario:
-      email: user@email.com
-      name: Usuario Padrao
-      password: $2b$12$K1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1vG1
-      role: user
     cliente:
       email: cliente@email.com
+      failed_login_attempts: 0
+      logged_in: false
       name: Cliente VIP
       password: $2b$12$P2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2
       role: client
-cookie:
-  expiry_days: 30
-  key: assinatura_secreta
-  name: cookie_sistema
+      tag: Palmital
+    ismael_adm:
+      email: analista.adm@mumix.com.br
+      failed_login_attempts: 0
+      logged_in: false
+      name: Ismael Junior
+      password: adm123456
+      role: administrador
+    sabrina:
+      email: administrativo@mumix.com.br
+      failed_login_attempts: 0
+      logged_in: false
+      name: Sabrina
+      password: $2b$12$gHt6hMwM4Kf8m3aEzJ6YKecLLZUpkl15CEk1Fv1woeOPRuYBt47S2
+      role: usuario
 preauthorized:
   emails:
   - mels@example.com
