@@ -4,28 +4,36 @@ cookie:
   name: cookie_sistema
 credentials:
   usernames:
-    cliente_Vip:
+    cliente_vip:
       email: cliente@email.com
       failed_login_attempts: 0
       logged_in: false
       name: Cliente VIP
       password: $2b$12$P2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2
-      role: cliente
+      role: usuario
       tag: Palmital
     ismael_adm:
       email: analista.adm@mumix.com.br
       failed_login_attempts: 0
       logged_in: false
       name: Ismael Junior
-      password: adm123456
+      password: $2b$12$G68L9vvlqvtlQQJvKJXuCOB8SmEpqv9UzvlUfh58NrNaesHrRu9wm
       role: administrador
+    ismael_cliente:
+      name: IsmaelTeste
+      password: $2b$12$qgt1xZvI5H3hbQRx02MbWecwtF8eBSyAs98EW8uaH4A5Sq4Zs9YtG
+      role: usuario
+    ismael_usuario:
+      name: IsmaelTesteUsuario
+      password: $2b$12$0FQPa.dfp8B3Vc2UOvLomOjPHtSIw89v2vWVgnBayr2cIbAlhBdKW
+      role: usuario
     sabrina:
       email: administrativo@mumix.com.br
       failed_login_attempts: 0
       logged_in: false
-      name: Sabrina
+      name: cliente
       password: $2b$12$gHt6hMwM4Kf8m3aEzJ6YKecLLZUpkl15CEk1Fv1woeOPRuYBt47S2
-      role: usuario
+      role: administrador
 preauthorized:
   emails:
   - mels@example.com

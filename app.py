@@ -10,10 +10,10 @@ st.set_page_config(page_title="Sistema ERP Mumix", layout="wide")
 def load_config():
     with open('config.yaml') as file:
         return yaml.load(file, Loader=SafeLoader)
-
 def save_config(config):
     with open('config.yaml', 'w') as file:
         yaml.dump(config, file, default_flow_style=False)
+
 
 # Carregar dados do YAML
 config = load_config()

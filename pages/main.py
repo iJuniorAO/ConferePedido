@@ -12,14 +12,18 @@ from yaml.loader import SafeLoader
 
 
 # ---- FUNÇÕES E CONSTANTS ---
+@st.dialog("Confirmar Alteraçao")
+def dupla_confirmacao():
+    confirma = st.text_input("Para confirmar digite: CONFIRMO")
+    if st.button("Registrar"):
+        st.rerun
 def carrega_config():
     with open("config.yaml") as file:
         return yaml.load(file, Loader=SafeLoader)
-    
 def save_config(config):
     with open("config.yaml", "w") as file:
         yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
-
+ROLES = ["administrador", "usuario", "cliente"]
 
 # --- CONFIGURAÇÃO PAGINA ---
 st.set_page_config(page_title="Sistema Mumix", layout="wide")
@@ -36,9 +40,6 @@ authenticator = stauth.Authenticate(
     config["cookie"]["key"],
     config["cookie"]["expiry_days"],
 )
-
-
-print(f"failed login attempts: {st.session_state.get("failed_login_attempts")}")
 
 try:
     authenticator.login(
@@ -80,7 +81,6 @@ if st.session_state.get("authentication_status"):
     #Salva as permissões do usuário
     user_role = config["credentials"]["usernames"][username].get("role")
     st.session_state["role"] = user_role
-    print(user_role)
 
     if user_role == "administrador":
         st.title(":material/Supervisor_Account: Painel de Controle")
@@ -126,8 +126,52 @@ if st.session_state.get("authentication_status"):
     #administração de contas, somente para adm
         if user_role == "administrador":
             
-            st.markdown("## Acesso Administrador:")
+            st.markdown("# Area Administrador:")
             st.divider()
+
+            #usuarios_ativos = list(config["credentials"]["usernames"].keys())
+            cadastro_usuarios = config["credentials"]["usernames"]
+            st.markdown(f"## Usuários ativos: :blue[{len(cadastro_usuarios)}]")
+
+            for permissao in ROLES:
+                st.markdown(f"### {permissao.title()}")
+                for usuario in cadastro_usuarios:
+                    if cadastro_usuarios[usuario]["role"] == permissao:
+                        st.write(usuario)
+            
+            st.divider()
+            
+
+
+            #config["credentials"]["usernames"]["role"] == "cliente" ou "usuario"
+
+            usuarios_validos = [
+                nome for nome, info in config["credentials"]["usernames"].items()
+                if info.get("role") is not None and info.get("role") in ["cliente", "usuario"]
+            ]
+
+            usuario_selecionado = st.selectbox("Selecione Usuário",usuarios_validos)
+            role_selecionada = st.selectbox("Selecione a Nova Permissão:", ROLES)
+            confirmar_alteracao = st.button("Confirmar Alteração")
+            #role usuario
+
+            if confirmar_alteracao:
+                dupla_confirmacao()
+                st.write(cadastro_usuarios[usuario_selecionado])
+                st.write(f"Role anterior: {cadastro_usuarios[usuario_selecionado]["role"]}")    
+                cadastro_usuarios[usuario_selecionado]["role"] = role_selecionada
+                save_config(config)
+                st.write(f"Role atual: {cadastro_usuarios[usuario_selecionado]["role"]}")
+                st.success("!")
+
+
+
+            
+            
+
+            st.divider()
+
+
             with st.expander(":material/settings: Administração Usuários"):
                 #Cadastrar novos usuários
                 with st.expander(":material/Person_Add: Cadastro de Novos Usuário"):
