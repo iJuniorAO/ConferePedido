@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 import pandas as pd
 import numpy as np
 import io
@@ -23,6 +24,12 @@ st.set_page_config(
     layout="wide")
 
 # --- FUNÇÕES DE PROCESSAMENTO (Adaptadas do seu arquivo original) ---
+def abrir_txt_auto(uploaded_file, colunas):
+    try:
+        return pd.read_csv(io.StringIO(uploaded_file), sep='|', header=None, names=colunas, encoding="latin1")
+    except Exception as e:
+        st.error(f"Erro: ao ler arquivo automático{e}")
+
 def abrir_txt_st(uploaded_file, colunas):
     """Lê o arquivo carregado no Streamlit."""
     try:
@@ -57,7 +64,6 @@ def limpa_df(uploaded_file):
     erros_nao_corrigidos = []
     linhas_removidas = 0
 
-
     # Processamento
     for i, linha in enumerate(linhas):
         num_l = i + 1
@@ -66,7 +72,7 @@ def limpa_df(uploaded_file):
             linhas_removidas += 1
             continue
         
-        #Retira linhas em branco extra
+        #Retira espaços em branco extra
         if linha.strip() != linha:
             linha = linha.strip()
        
@@ -113,12 +119,59 @@ def encontra_melhor_match(descricao_erro, escolhas_base, threshold=60):
     if match and match[1] >= threshold:
         return pd.Series([match[0], match[1]], index=['Descricao_Sugerida', 'Score_Similaridade'])
     return pd.Series([None, 0], index=['Descricao_Sugerida', 'Score_Similaridade'])
+@st.cache_data
+def carregar_dados_onedrive(input_texto):
+    try:
+        # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
+        url_match = re.search(r'src="([^"]+)"', input_texto)
+        url = url_match.group(1) if url_match else input_texto
+        
+        # 2. Ajuste para SharePoint Business
+        # Se for link de embed do SharePoint, mudamos para o modo de download
+        if "sharepoint.com" in url:
 
-# Definição de colunas conforme o código original [cite: 4]
-colunas_produto = ["CodProduto", "CodGrupo", "Descricao", "SiglaUn", "MinVenda", "PrecoUnPd", "CodPrincProd", "Estoq", "Obs", "Grade", "Falta", "Novo", "Prom", "DescMax", "Fam"]
+            if "embed.aspx" in url:
+                # Transforma o link de embed em um link de ação de download
+                url = url.replace("embed.aspx", "download.aspx")
+            elif "download=1" not in url:
+                # Se for link de compartilhamento normal, força o download
+                url = url + ("&" if "?" in url else "?") + "download=1"
+        else:
+            # Caso seja OneDrive Pessoal
+            url = url.replace("embed", "download")
+
+        # 3. Faz a requisição
+        response = requests.get(url, timeout=20)
+        response.raise_for_status()
+        
+        return response.text
+    except Exception as e:
+        st.error(f"Erro ao processar URL: {e}")
+        return None
+
+colunas_produto = ["CodProduto",
+                   "CodGrupo",
+                   "Descricao",
+                   "SiglaUn",
+                   "MinVenda",
+                   "PrecoUnPd",
+                   "CodPrincProd",
+                   "Estoq",
+                   "Obs", 
+                   "Grade",
+                   "Falta",
+                   "Novo", 
+                   "Prom",
+                   "DescMax",
+                   "Fam"]
 colunas_produto_extra = ["CodProduto", "Fam", "ListaCodCaract", "DescComplementar"]
 colunas_Pedidos = ["QtCx", "Sigla", "Descricao"]
 Linhas_Pedidos = 0
+link_input = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQAQ5ov01QmTRrwGyIKptyJRAWoT1Q-6gTX63LzDircBkzc?e=EeXhrx"
+link_input2 = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQDaxm6b45iRQ7SrghOX_st1Afw7MT3ZQranHYdqwuTYh8s?e=vLWBGV"
+desativa_manual = False
+produtos_cadastrados = 0
+
 # --- INTERFACE STREAMLIT ---
 st.title("💾 Conversor de Pedidos para Importação")
 
@@ -128,16 +181,20 @@ tab1,tab2 = st.tabs(["📦 Base de Dados","📝 Importação de Pedidos"])
 with tab1:
     st.header("Upload de Bases de Dados")
     #Btm com link para baixar produto.txt e produtoextra.txt
-    st.subheader("Link para txt atualizado:")
-    st.link_button("Clique aqui",
-                   r"https://mumulaticinios-my.sharepoint.com/my?id=%2Fpersonal%2Fanalista%5Fadm%5Fmumix%5Fcom%5Fbr%2FDocuments%2FBaseDados%2FNOVO&ga=1"
-                   )
+    bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?")
+    if bd_automatico:
+        f_produto_auto = carregar_dados_onedrive(link_input)
+        f_extra_auto = carregar_dados_onedrive(link_input2)
+        desativa_manual = True
+
+
     #col1, col2, col3 = st.columns(3)
     col1, col2 = st.columns(2)
     with col1:
-        f_produto = st.file_uploader("📦 Arquivo 00001produto.txt", type="txt")
+        f_produto = st.file_uploader("📦 Arquivo 00001produto.txt", disabled=desativa_manual, type="txt")
     with col2:
-        f_extra = st.file_uploader("➕ Arquivo 00001produtoextra.txt", type="txt")
+        f_extra = st.file_uploader("➕ Arquivo 00001produtoextra.txt",disabled=desativa_manual, type="txt")
+
 #2. UPLOAD DE ARQUIVOS PEDIDO
 with tab2:
     tabela1 = st.columns([0.2, 0.6, 0.2])
@@ -145,13 +202,24 @@ with tab2:
         st.header("Upload de Pedidos da Loja")
         f_pedido = st.file_uploader("📝 Pedido da Loja (.txt)", type="txt")
 
-if f_produto and f_extra and f_pedido:
+if ((f_produto and f_extra) or desativa_manual) and f_pedido:
     # --- PROCESSAMENTO ---
     with st.status("Processando dados...", expanded=True) as status:
         # Carregamento
-        df = abrir_txt_st(f_produto, colunas_produto)
-        df_extra = abrir_txt_st(f_extra, colunas_produto_extra)
+        if desativa_manual:
+            df = abrir_txt_auto(f_produto_auto, colunas_produto)
+            df_extra = abrir_txt_auto(f_extra_auto, colunas_produto_extra)
+        else:
+            if f_produto.name != "00001produto.txt":
+                st.error(":material/Close: 00001produto.txt erro ao carregar")
+                st.stop()
+            if f_extra.name != "00001produtoextra.txt":
+                st.error(":material/Close: 00001produtoextra.txt erro ao carregar")
+                st.stop()
+            df = abrir_txt_st(f_produto, colunas_produto)
+            df_extra = abrir_txt_st(f_extra, colunas_produto_extra)
 
+        produtos_cadastrados = len(df)
         # Filtros iniciais
         df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam"]]
         df = df[(df["Fam"] != 900000008) & (df["Estoq"] > 0)]
@@ -226,7 +294,6 @@ if f_produto and f_extra and f_pedido:
                     how='left',
                     suffixes=('_Erro', '_Base')
                 )
-
                 st.write(f"Encontrados Automaticamente: {df_validacao["Descricao_Sugerida"].notna().sum()}/{df_validacao["Descricao"].notna().sum()} itens")
                 st.write("Selecione as alterações corretas:")
 
@@ -316,7 +383,7 @@ if f_produto and f_extra and f_pedido:
                     st.info(f"Sem itens para {tipo}")
     #Possui correções automáticas
     else:
-        st.header("Baixar Pedidos Gerados - Correção Automática")
+        st.header("Baixar Pedidos Gerados - :red[Correção Automática]")
         c1, c2, c3 = st.columns(3)
         tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
         
@@ -339,33 +406,40 @@ if f_produto and f_extra and f_pedido:
                     st.info(f"Sem itens para {tipo}")
 
 elif f_produto and f_extra and not f_pedido:
-    erro = 0
-    df = abrir_txt_st(f_produto,colunas_produto)
-    df_extra = abrir_txt_st(f_extra,colunas_produto_extra)
+    #validação de upload de arquivos
+    if f_produto.name != "00001produto.txt":
+        st.error(":material/Close: 00001produto.txt erro ao carregar")
+    if f_extra.name != "00001produtoextra.txt":
+        st.error(":material/Close: 00001produtoextra.txt erro ao carregar")
+    if f_produto.name == "00001produto.txt" and f_extra.name == "00001produtoextra.txt":
+        st.info(":material/Check: Arquivos iniciais OK. Aguardando upload do pedido.")
 
-    #Validação produto.txt
-    if df["Estoq"].sum() == 0:
-        st.error("❌ Erro ao carregar 00001produto.txt")
-        erro = 1
-    #Validação produtoextra.txt
-    if df_extra["CodProduto"].notna().sum() == df_extra["Fam"].notna().sum():
-        st.error("❌ Erro ao carregar 00001produtoextra.txt")
-        erro = 1
-    if erro == 0:
-        st.warning("✅ Arquivos de Base carregados com sucesso.\n Aguardando o upload do pedido da loja para iniciar.")
 else:
-    st.info("⚠️ Aguardando o upload do arquivos iniciais para iniciar.")
+    st.info(":material/Warning: Aguardando o upload do arquivos iniciais para iniciar.")
 
-st.sidebar.markdown("""
-## Portal Pedidos
-### Correções implementadas:
+with st.sidebar:
+    st.markdown("""
+        ## Portal Pedidos
+        ### Correções implementadas:
 
-### Preparação:
-1. Insere o arquivo produto.txt                    
-2. Insere o arquivo produtoextra.txt
+        ### Preparação:
+        1. Insere o arquivo produto.txt                    
+        2. Insere o arquivo produtoextra.txt
 
-### Processo de Conversão:
-1. Importa o pedido da loja
-2. Verifica ERROS - Qt de cx
-3. Verifica ERROS - Descrição e Fator Conversão
-""")
+        ### Processo de Conversão:
+        1. Importa o pedido da loja
+        2. Verifica ERROS - Qt de cx
+        3. Verifica ERROS - Descrição e Fator Conversão
+        """)
+    st.divider()
+    st.write(f"Produtos cadastrados: :blue[{produtos_cadastrados}]")
+
+
+    st.subheader("Link para produto.txt:")
+    st.link_button("Clique aqui",
+                    r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQAQ5ov01QmTRrwGyIKptyJRAWoT1Q-6gTX63LzDircBkzc?e=EeXhrx"
+                    )
+    st.subheader("Link para produtoextra.txt:")
+    st.link_button("Clique aqui",
+                    r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQDaxm6b45iRQ7SrghOX_st1Afw7MT3ZQranHYdqwuTYh8s?e=vLWBGV"
+                    )
