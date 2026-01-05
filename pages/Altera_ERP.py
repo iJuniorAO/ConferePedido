@@ -273,81 +273,83 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                 if not df_Erro_Qt.empty:
                     st.warning(f"[{len(df_Erro_Qt)}] Linhas com erro na quantidade:")
                     st.dataframe(df_Erro_Qt)
+                    aplicar_correcao = False
                 if not df_Erro_Desc.empty:
                     st.error(f"[{len(df_Erro_Desc)}] Itens não encontrados na base de produtos:")
                     #st.dataframe(df_Erro_Desc[['Codigo', "QtCx",'Descricao']])
         
 
         
-                # Lista de descrições únicas da base para comparar
-                lista_base = df_Produto_Base['Descricao'].tolist()
-                # Aplicamos a função no df_Erro_Desc
-                matches = df_Erro_Desc['Descricao'].apply(lambda x: encontra_melhor_match(x, lista_base))
-                # 3. Concatenando os resultados para validação
+                    # Lista de descrições únicas da base para comparar
+                    lista_base = df_Produto_Base['Descricao'].tolist()
+                    # Aplicamos a função no df_Erro_Desc
+                    matches = df_Erro_Desc['Descricao'].apply(lambda x: encontra_melhor_match(x, lista_base))
+                    # 3. Concatenando os resultados para validação
 
-                df_validacao = pd.concat([df_Erro_Desc, matches], axis=1)
-                # 4. Trazer as outras colunas do df_Produto_Base baseada na sugestão
-                df_final = df_validacao.merge(
-                    df_Produto_Base[['Descricao', 'Codigo', 'TIPO', 'CONV']], 
-                    left_on='Descricao_Sugerida', 
-                    right_on='Descricao', 
-                    how='left',
-                    suffixes=('_Erro', '_Base')
-                )
-                st.write(f"Encontrados Automaticamente: {df_validacao["Descricao_Sugerida"].notna().sum()}/{df_validacao["Descricao"].notna().sum()} itens")
-                st.write("Selecione as alterações corretas:")
-
-                # Ordenar pelos scores mais baixos primeiro para o usuário focar no que é duvidoso
-                #df_final = df_final.sort_values(by='Score_Similaridade', ascending=False)
-
-                df_validacao = df_validacao.sort_values(by="Score_Similaridade", ascending=False)
-
-                validacao_dic = st.dataframe(df_validacao[['QtCx', 'Descricao', 'Descricao_Sugerida', 'Score_Similaridade']],
-                            selection_mode="multi-row",
-                            on_select="rerun",
-                            #hide_index=True
-                            )
-
-                aplicar_correcao = st.toggle("Usar correções automáticas")
-
-                if aplicar_correcao:
-                    ind_aprovados = validacao_dic["selection"]["rows"]
-
-                    df_corrigido = df_validacao.iloc[ind_aprovados].copy()
-
-                    #pegar o df_corrigido e realizar merge junto ao df_pedido para criar um novo df_pedido
-                    #importado 20 sem a correção esperado 22
-                    #O que é VALOR_STR em df_Pedido_Final??
-                    #!!!!
-
-                    #Troca valores de df_corrigido para df_Pedido_Final
-                    # 1. Criar um dicionário de mapeamento: { 'Valor Antigo': 'Valor Novo' }
-                    mapeamento = dict(zip(df_corrigido['Descricao'], df_corrigido['Descricao_Sugerida']))
-                    # 2. Aplicar a substituição na coluna original
-                    df_Pedido_Rev = df_Pedido_Loja.copy()
-                    df_Pedido_Rev['Descricao'] = df_Pedido_Rev['Descricao'].replace(mapeamento)
-
-                    # Procv Pedido_loja_Final_Rev com 0001produto
-                    df_Pedido_Final_Rev = df_Produto_Base.merge(
-                        df_Pedido_Rev[["QtCx", "Descricao"]],
-                        on="Descricao",
-                        how="outer",
-                        indicator=True
+                    df_validacao = pd.concat([df_Erro_Desc, matches], axis=1)
+                    # 4. Trazer as outras colunas do df_Produto_Base baseada na sugestão
+                    df_final = df_validacao.merge(
+                        df_Produto_Base[['Descricao', 'Codigo', 'TIPO', 'CONV']], 
+                        left_on='Descricao_Sugerida', 
+                        right_on='Descricao', 
+                        how='left',
+                        suffixes=('_Erro', '_Base')
                     )
+                    st.write(f"Encontrados Automaticamente: {df_validacao["Descricao_Sugerida"].notna().sum()}/{df_validacao["Descricao"].notna().sum()} itens")
+                    st.write("Selecione as alterações corretas:")
 
-                    df_Erro_Desc = df_Pedido_Final[df_Pedido_Final["_merge"] == "right_only"]
-                    
-                    # Cálculo final 
-                    df_Pedido_Final_Rev = df_Pedido_Final_Rev[df_Pedido_Final_Rev["QtCx"].notna()].copy()
-                    df_Pedido_Final_Rev["TOTAL"] = df_Pedido_Final_Rev["QtCx"] * df_Pedido_Final_Rev["CONV"]
+                    # Ordenar pelos scores mais baixos primeiro para o usuário focar no que é duvidoso
+                    #df_final = df_final.sort_values(by='Score_Similaridade', ascending=False)
 
-                    # Formatação numérica (00000,000) 
-                    df_Pedido_Final_Rev["VALOR_STR"] = df_Pedido_Final_Rev["TOTAL"].map(
-                        lambda x: f"{x:09.3f}".replace(".", ",") if isinstance(x, (int, float)) else "00000,000"
-                    )        
+                    df_validacao = df_validacao.sort_values(by="Score_Similaridade", ascending=False)
+
+                    validacao_dic = st.dataframe(df_validacao[['QtCx', 'Descricao', 'Descricao_Sugerida', 'Score_Similaridade']],
+                                selection_mode="multi-row",
+                                on_select="rerun",
+                                #hide_index=True
+                                )
+
+                    aplicar_correcao = st.toggle("Usar correções automáticas")
+
+                    if aplicar_correcao:
+                        ind_aprovados = validacao_dic["selection"]["rows"]
+
+                        df_corrigido = df_validacao.iloc[ind_aprovados].copy()
+
+                        #pegar o df_corrigido e realizar merge junto ao df_pedido para criar um novo df_pedido
+                        #importado 20 sem a correção esperado 22
+                        #O que é VALOR_STR em df_Pedido_Final??
+                        #!!!!
+
+                        #Troca valores de df_corrigido para df_Pedido_Final
+                        # 1. Criar um dicionário de mapeamento: { 'Valor Antigo': 'Valor Novo' }
+                        mapeamento = dict(zip(df_corrigido['Descricao'], df_corrigido['Descricao_Sugerida']))
+                        # 2. Aplicar a substituição na coluna original
+                        df_Pedido_Rev = df_Pedido_Loja.copy()
+                        df_Pedido_Rev['Descricao'] = df_Pedido_Rev['Descricao'].replace(mapeamento)
+
+                        # Procv Pedido_loja_Final_Rev com 0001produto
+                        df_Pedido_Final_Rev = df_Produto_Base.merge(
+                            df_Pedido_Rev[["QtCx", "Descricao"]],
+                            on="Descricao",
+                            how="outer",
+                            indicator=True
+                        )
+
+                        df_Erro_Desc = df_Pedido_Final[df_Pedido_Final["_merge"] == "right_only"]
+                        
+                        # Cálculo final 
+                        df_Pedido_Final_Rev = df_Pedido_Final_Rev[df_Pedido_Final_Rev["QtCx"].notna()].copy()
+                        df_Pedido_Final_Rev["TOTAL"] = df_Pedido_Final_Rev["QtCx"] * df_Pedido_Final_Rev["CONV"]
+
+                        # Formatação numérica (00000,000) 
+                        df_Pedido_Final_Rev["VALOR_STR"] = df_Pedido_Final_Rev["TOTAL"].map(
+                            lambda x: f"{x:09.3f}".replace(".", ",") if isinstance(x, (int, float)) else "00000,000"
+                        )        
         else:
             st.success("Sem erro de exportação")
             st.toast("Todos itens importados",icon="✅")
+            aplicar_correcao = False
     
     status.update(label="Processamento concluído!", state="complete")
     
