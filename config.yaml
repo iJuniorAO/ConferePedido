@@ -9,7 +9,7 @@ credentials:
       failed_login_attempts: 0
       logged_in: false
       name: Cliente VIP
-      password: $2b$12$P2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2vP2
+      password: $2b$12$Z1YZKP91fW0kEQoeC0d5j.laCxLnuH238FdloW6ZeKEtWiie1l/5S
       role: usuario
       tag: Palmital
     ismael_adm:
@@ -17,7 +17,7 @@ credentials:
       failed_login_attempts: 0
       logged_in: false
       name: Ismael Junior
-      password: $2b$12$G68L9vvlqvtlQQJvKJXuCOB8SmEpqv9UzvlUfh58NrNaesHrRu9wm
+      password: $2b$12$fkhfbAbpVdFD84/v1gAvcOTojqraFXw91B31oreDqKqM5JweTEiZ6
       role: administrador
     ismael_cliente:
       name: IsmaelTeste
@@ -25,7 +25,7 @@ credentials:
       role: usuario
     ismael_usuario:
       name: IsmaelTesteUsuario
-      password: $2b$12$0FQPa.dfp8B3Vc2UOvLomOjPHtSIw89v2vWVgnBayr2cIbAlhBdKW
+      password: $2b$12$D7OYJLXGw1k9FUndcTJgyeKlH7Wj9MkLOsHxXFMs0G91z942/e.OK
       role: usuario
     sabrina:
       email: administrativo@mumix.com.br

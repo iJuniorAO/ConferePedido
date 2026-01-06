@@ -10,20 +10,39 @@ from yaml.loader import SafeLoader
 #       Reinvocar unrendered login widget em cada página
 #       update config
 
-
 # ---- FUNÇÕES E CONSTANTS ---
+ROLES = ["administrador", "usuario", "cliente"]
+if "confirmacao_alteracao_permissao" not in st.session_state:
+    st.session_state.confirmacao_alteracao_permissao = None
+if "confirmacao_alteracao_senha" not in st.session_state:
+    st.session_state.confirmacao_alteracao_senha = None
+
 @st.dialog("Confirmar Alteraçao")
-def dupla_confirmacao():
+def dupla_confirmacao(registro):
+    st.error(":material/Warning: Essa ação não pode ser desfeita")
     confirma = st.text_input("Para confirmar digite: CONFIRMO")
-    if st.button("Registrar"):
-        st.rerun
+    if registro == "permissao":
+        if st.button("Registrar"):
+            if confirma == "CONFIRMO":
+                st.session_state.confirmacao_alteracao_permissao = True
+                st.rerun()
+            else:
+                st.rerun()
+    elif registro == "senha":
+        if st.button("Registrar"):
+            if confirma == "CONFIRMO":
+                st.session_state.confirmacao_alteracao_senha = True
+                st.rerun()
+            else:
+                st.rerun()
 def carrega_config():
     with open("config.yaml") as file:
         return yaml.load(file, Loader=SafeLoader)
 def save_config(config):
     with open("config.yaml", "w") as file:
         yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
-ROLES = ["administrador", "usuario", "cliente"]
+
+
 
 # --- CONFIGURAÇÃO PAGINA ---
 st.set_page_config(page_title="Sistema Mumix", layout="wide")
@@ -41,6 +60,7 @@ authenticator = stauth.Authenticate(
     config["cookie"]["expiry_days"],
 )
 
+#tela login
 try:
     authenticator.login(
         single_session=True,
@@ -129,6 +149,7 @@ if st.session_state.get("authentication_status"):
             st.markdown("# Area Administrador:")
             st.divider()
 
+            
             #usuarios_ativos = list(config["credentials"]["usernames"].keys())
             cadastro_usuarios = config["credentials"]["usernames"]
             st.markdown(f"## Usuários ativos: :blue[{len(cadastro_usuarios)}]")
@@ -139,38 +160,13 @@ if st.session_state.get("authentication_status"):
                     if cadastro_usuarios[usuario]["role"] == permissao:
                         st.write(usuario)
             
-            st.divider()
-            
-
-
-            #config["credentials"]["usernames"]["role"] == "cliente" ou "usuario"
-
             usuarios_validos = [
                 nome for nome, info in config["credentials"]["usernames"].items()
                 if info.get("role") is not None and info.get("role") in ["cliente", "usuario"]
             ]
 
-            usuario_selecionado = st.selectbox("Selecione Usuário",usuarios_validos)
-            role_selecionada = st.selectbox("Selecione a Nova Permissão:", ROLES)
-            confirmar_alteracao = st.button("Confirmar Alteração")
-            #role usuario
-
-            if confirmar_alteracao:
-                dupla_confirmacao()
-                st.write(cadastro_usuarios[usuario_selecionado])
-                st.write(f"Role anterior: {cadastro_usuarios[usuario_selecionado]["role"]}")    
-                cadastro_usuarios[usuario_selecionado]["role"] = role_selecionada
-                save_config(config)
-                st.write(f"Role atual: {cadastro_usuarios[usuario_selecionado]["role"]}")
-                st.success("!")
-
-
-
-            
-            
-
+                  
             st.divider()
-
 
             with st.expander(":material/settings: Administração Usuários"):
                 #Cadastrar novos usuários
@@ -210,24 +206,58 @@ if st.session_state.get("authentication_status"):
                             st.success(f":material/Check: Conta: '{novo_user}' cadastrado com sucesso!")
                     except Exception as e:
                         st.error(e)
-                #Redefinir senha
-                with st.expander(":material/Person_Edit: Redefinir Senha"):
-                    try:
-                        if authenticator.reset_password(
-                            st.session_state.get("username"),
-                            fields={"Form name":"Redefinir Senha", "Current password":"Senha Atual", "New password": "Nova Senha", "Repeat password":"Repetir a Senha"},
-                            ):
-                            save_config(config)
-                            st.success("Senha modificada com sucesso")
-                            st.info("aviso")
-                    except Exception as e:
-                        st.error(e)
-    elif user_role == "cliente":
+                
+                            #Editar permissões
+                #Edita permissoes cadastro
+                with st.expander(":material/Person_Edit: Editar Permissão"):
 
+                    usuario_selecionado_permissao = st.selectbox("Selecione Usuário",usuarios_validos,key=1)
+                    role_selecionada = st.selectbox("Selecione a Nova Permissão:", ROLES)
+                    confirmar_alteracao_permissao = st.button("Confirmar Alteração")
+
+                    if confirmar_alteracao_permissao:
+                        dupla_confirmacao("permissao")
+                    if st.session_state.get("confirmacao_alteracao_permissao"):
+                        cadastro_usuarios[usuario_selecionado_permissao]["role"] = role_selecionada
+                        save_config(config)
+                        st.session_state.confirmacao_alteracao_permissao = False
+                        st.rerun()
+
+                #Redefinir senha
+                with st.expander(":material/Person_Edit: Reset de Senha"):
+                        st.markdown("Após confirmar a senha será redefinida para: ':red[MUMIX123456]'")
+                        usuario_selecionado_senha = st.selectbox("Selecione Usuário", usuarios_validos,key=2)
+                        confirmar_alteracao_senha = st.button("Confirmar Senha Padrão")
+                        if confirmar_alteracao_senha:
+                            dupla_confirmacao("senha")
+                        if st.session_state.get("confirmacao_alteracao_senha"):
+                            cadastro_usuarios[usuario_selecionado_senha]["password"] = "MUMIX123456"
+                            st.session_state.confirmacao_alteracao_senha = False
+                            save_config(config)
+                            print(usuario_selecionado_senha)
+                            print(cadastro_usuarios[usuario_selecionado_senha]["password"])
+                            st.success("Senha Alterado com sucesso")
+
+    elif user_role == "cliente":
+        st.markdown("# :material/Shopping_Bag: Pedidos:")
 
         st.button(":material/Add_Shopping_Cart: Fazer Novo Pedido")
         st.button(":material/Shopping_Cart: Meus Pedidos")
-
+    
+    st.divider()
+    
+    #Redefinir senha todos usuários
+    st.markdown("# :material/Article_Person: Minha Conta")
+    with st.expander(":material/Person_Edit: Redefinir Minha Senha"):
+        try:
+            if authenticator.reset_password(
+                st.session_state.get("username"),
+                fields={"Form name":"Redefinir Senha", "Current password":"Senha Atual", "New password": "Nova Senha", "Repeat password":"Repetir a Senha"},
+                ):
+                save_config(config)
+                st.success("Senha modificada com sucesso")
+        except Exception as e:
+            st.error(e)
 
 
     #   --- CRIAR user_role cliente
@@ -246,16 +276,3 @@ elif st.session_state.get("authentication_status") is False:
 # sem tentativa de login
 elif st.session_state.get("authentication_status") is None:
     st.info("Entre com usuário e senha")
-
-
-if False:
-    # --- RECUPERAÇÃO DE SENHA (OPCIONAL) ---
-    if not st.session_state["authentication_status"]:
-        with st.expander("Esqueci minha senha"):
-            try:
-                username_forgot, email_forgot, new_pw = authenticator.forgot_password('Recuperar')
-                if username_forgot:
-                    st.success(f'Sua nova senha é: {new_pw}')
-                    save_config(config)
-            except Exception as e:
-                st.error(e)
