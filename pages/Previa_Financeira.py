@@ -40,6 +40,21 @@ def negativo_vermelho(val):
 
 #HOJE formato "AAAA-MM-DD"
 HOJE = pd.to_datetime("today").normalize()
+COLUNAS_PLANILHA = [
+    "Título",
+    "Nat. Lançamento",
+    "Forma Pagto",
+    "Número",
+    "Vencimento",
+    "Valor",
+    "Outros*",
+    "Dt. Baixa",
+    "Valor da Baixa",
+    "Tipo",
+    "Prev.",
+    "Emp."
+]
+
 
 # --- INÍCIO DO SCRIPT STREAMLIT ---
 # Configuração da página
@@ -72,22 +87,9 @@ if arquivo_upload:
         st.stop()
 
     #Validação Colunas
-    if df.columns.tolist() != [
-                                'Título',
-                                'Forma Pagto',
-                                'Emissão',
-                                'Número',
-                                'Vencimento',
-                                'Valor',
-                                'Outros*',
-                                'Dt. Baixa',
-                                'Valor da Baixa',
-                                'Diferença',
-                                'Tipo',
-                                'Prev.',
-                                'Emp.'
-                               ]:
+    if df.columns.tolist() != COLUNAS_PLANILHA:
         st.error("O arquivo Excel não possui as colunas esperadas.")
+        print(df.columns.tolist)
         st.stop()
 
     df = verifica_corrige_df(df)
@@ -119,16 +121,21 @@ if arquivo_upload:
     fluxo_dia["Saldo_Dia"] = fluxo_dia['Balanço_Diario'].cumsum() + valor_inicial
 
     # --- EXIBIÇÃO ---
-    
-    # Métricas de Resumo
+    #Validação DF
+    if fluxo_dia.empty:
+        st.error(":material/Warning: Nenhuma informação encontrada: Verificar data filtrada")
+        st.stop()
+        print("df vazio")
+
     diferenca_saldo = fluxo_dia["Saldo_Dia"].iloc[-1] - (valor_inicial)
-    print(f"Inicial: {valor_inicial:,.2f}")
-    print(f"Final: {fluxo_dia['Saldo_Dia'].iloc[-1]:,.2f}")
-    print(f"{diferenca_saldo:,.2f}")
-   
+    
+    # Métricas de Resumo 
     m1, m2, m3 = st.columns(3)
+    #m1
     m1.metric("Total a Receber", f"R$ {fluxo_dia['Receber'].sum():,.2f}")
-    m2.metric("Total a Pagar", f"R$ {fluxo_dia['Pagar'].sum():,.2f}")
+    #m2
+    m2.metric("Total a Pagar", f"R$ {fluxo_dia['Pagar'].sum():,.2f}")   
+    #m3 com diferença de cor
     if diferenca_saldo >=0:
         m3.metric("Saldo Final Projetado", f"R$ {fluxo_dia['Saldo_Dia'].iloc[-1]:,.2f}", delta=f"+ R$ {abs(diferenca_saldo):,.2f}")
     else:
@@ -138,7 +145,10 @@ if arquivo_upload:
 
     # Gráfico de Evolução do Saldo
     st.subheader("Evolução do Saldo Acumulado")
-    st.line_chart(fluxo_dia["Saldo_Dia"])
+    if fluxo_dia['Saldo_Dia'].iloc[-1]>0:
+        st.area_chart(fluxo_dia["Saldo_Dia"], color="#004777")
+    else:
+        st.area_chart(fluxo_dia["Saldo_Dia"], color="#E40039")
 
     # Tabela de Dados
     st.subheader("Detalhamento Diário")
