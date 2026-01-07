@@ -42,8 +42,6 @@ def save_config(config):
     with open("config.yaml", "w") as file:
         yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
 
-
-
 # --- CONFIGURAÇÃO PAGINA ---
 st.set_page_config(page_title="Sistema Mumix", layout="wide")
 
@@ -75,29 +73,40 @@ except Exception as e:
 if not st.session_state.get("authentication_status"):
     
     #esqueci senha
-    try:
-        username_of_forgotten_password, \
-        email_of_forgotten_password, \
-        new_random_password = authenticator.forgot_password(
-            fields={"Form name":"Esqueci minha senha", "Username":"Usuário","Submit":"Enviar"},
-            clear_on_submit=True,
-        )
-        if username_of_forgotten_password:
-            print(f"Usuario: {username_of_forgotten_password}")
-            print(f"email: {email_of_forgotten_password}")
-            print(f"senha: {new_random_password}")
-            save_config(config)
-            st.success('Aguarde receber nova senha')
-        elif username_of_forgotten_password == False:
-            st.error('Usuário não encontrado')
-    except Exception as e:
-        st.error(e)
+    if False:
+        try:
+            username_of_forgotten_password, \
+            email_of_forgotten_password, \
+            new_random_password = authenticator.forgot_password(
+                fields={"Form name":"Esqueci minha senha", "Username":"Usuário","Submit":"Enviar"},
+                clear_on_submit=True,
+            )
+            if username_of_forgotten_password:
+                print(f"Usuario: {username_of_forgotten_password}")
+                print(f"email: {email_of_forgotten_password}")
+                print(f"senha: {new_random_password}")
+                save_config(config)
+                st.success('Aguarde receber nova senha')
+            elif username_of_forgotten_password == False:
+                st.error('Usuário não encontrado')
+        except Exception as e:
+            st.error(e)
 
 #usuário logado
 if st.session_state.get("authentication_status"):
+  
     st.title(":material/Home: Página inicial")
     username = st.session_state["username"]
+    cadastro_usuarios = config["credentials"]["usernames"]
 
+    
+
+    cadastro_usuarios[username]["logged_in"] = True
+    save_config(config)
+
+
+    
+    
     #Salva as permissões do usuário
     user_role = config["credentials"]["usernames"][username].get("role")
     st.session_state["role"] = user_role
@@ -133,6 +142,7 @@ if st.session_state.get("authentication_status"):
             st.markdown("## :orange[:material/Upgrade:] Em Progresso")
             st.markdown("Organizados por ordem de prioridade")
             st.write(":orange-badge[:material/Lab_Profile: Previa Financeira]")
+            st.write(":red-badge[:material/code: Login]")
             st.write(":red-badge[:material/code: Divisão]")
             st.write(":red-badge[:material/code: Lojas/Carrinho]")
             st.write(":red-badge[:material/code: Lojas/MeusPedidos]")
@@ -142,18 +152,30 @@ if st.session_state.get("authentication_status"):
             st.markdown(":orange[:material/Lab_Profile:] Etapa de teste")
             st.markdown(":red[:material/code:] Etapa de Codificação")
 
-        st.space()
+        st.divider()
     #administração de contas, somente para adm
         if user_role == "administrador":
             
             st.markdown("# Area Administrador:")
-            st.divider()
-
             
             #usuarios_ativos = list(config["credentials"]["usernames"].keys())
-            cadastro_usuarios = config["credentials"]["usernames"]
-            st.markdown(f"## Usuários ativos: :blue[{len(cadastro_usuarios)}]")
+            online=0
+            for user in cadastro_usuarios:  
+                if cadastro_usuarios[user]["logged_in"]:
+                    online +=1
+            
+            m1, m2, m3 = st.columns(3, border=False)
+            with m1:                    
+                st.markdown(f"### Ativos: :blue[{len(cadastro_usuarios)}]")
 
+            with m2:                    
+                st.markdown(f"### Online: :green[{online}]")
+
+            with m3:                    
+                st.markdown(f"### Offline: :red[{len(cadastro_usuarios)-online}]")
+
+
+            st.space()
             for permissao in ROLES:
                 st.markdown(f"### {permissao.title()}")
                 for usuario in cadastro_usuarios:
