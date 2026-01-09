@@ -4,9 +4,8 @@ from datetime import timedelta
 import openpyxl
 
 #   MELHORIA
-#       Coluna Saldo Final Projetado na métrica ok
-#       Coluna Saldo Final por cores ok
-#       Ativar metricas de resumo ok
+#       FLAG filtrar títulos/previa
+#       Tabela com títulos que deseja retirar
 
 
 # --- DEFINIÇÕES DE FUNÇÕES, VARIÁVEIS e CONSTANTES ---
@@ -15,7 +14,6 @@ def verifica_corrige_df(dfLocal):
     dfLocal["Vencimento"] = pd.to_datetime(dfLocal["Vencimento"], errors='coerce')
     dfLocal = dfLocal[dfLocal["Vencimento"].notnull()]
     return dfLocal
-# Regra de Liquidação Bancária
 def calcular_data_caixa(row):
     dt = row['Vencimento']
     wd = dt.weekday() # 0=Segunda, 4=Sexta, 5=Sábado, 6=Domingo
@@ -38,8 +36,8 @@ def negativo_vermelho(val):
         return "color: red"
     return ""
 
-#HOJE formato "AAAA-MM-DD"
 HOJE = pd.to_datetime("today").normalize()
+ULTIMO_DIA = HOJE + pd.offsets.YearEnd(0)
 COLUNAS_PLANILHA = [
     "Título",
     "Nat. Lançamento",
@@ -57,33 +55,32 @@ COLUNAS_PLANILHA = [
 
 
 # --- INÍCIO DO SCRIPT STREAMLIT ---
-# Configuração da página
 st.set_page_config(page_title="Previsão Financeira", layout="wide")
 st.title("📊 Controle de Fluxo de Caixa")
 
 # --- BARRA LATERAL (INPUTS) ---
-st.sidebar.header("Configurações")
+with st.sidebar:
+    st.header("Configurações")
+    arquivo_upload = st.file_uploader("Suba sua planilha Excel", type=["xlsx"])
+    valor_inicial = st.number_input("Saldo Inicial (R$)", step=100.0)
 
-# Upload do Arquivo
-arquivo_upload = st.sidebar.file_uploader("Suba sua planilha Excel", type=["xlsx"])
-
-# Inputs de Valor e Data
-valor_inicial = st.sidebar.number_input("Saldo Inicial (R$)", step=100.0)
-
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    #data_i = st.date_input("Data Inicial", value=pd.to_datetime("2025-12-21"))
-    data_i = st.date_input("Data Inicial", value=(HOJE), format="DD/MM/YYYY")
-with col2:
-    data_f = st.date_input("Data Final", value=pd.to_datetime("2025-12-31"), format="DD/MM/YYYY")
+    col1, col2 = st.columns(2)
+    with col1:
+        data_i = st.date_input("Data Inicial", value=(HOJE), format="DD/MM/YYYY")
+    with col2:
+        data_f = st.date_input("Data Final", value=(ULTIMO_DIA), format="DD/MM/YYYY")
 
 # --- PROCESSAMENTO ---
 if arquivo_upload:
     # Carregamento dos dados
+    if (data_i > data_f):
+        st.error(":material/Warning: Data Inicial deve ser antes que a Data Final")
+        st.stop()
     try:
-        df = pd.read_excel(arquivo_upload, engine="openpyxl")
-    except:
-        st.error(f"Erro ao ler o arquivo Excel:")
+        df = pd.read_excel(arquivo_upload,engine="openpyxl")
+    except Exception as e:
+        st.error(f"Erro {e}")
+        st.warning("Tente abrir o arquivo e salvar novamente")
         st.stop()
 
     #Validação Colunas
@@ -93,37 +90,30 @@ if arquivo_upload:
         st.stop()
 
     df = verifica_corrige_df(df)
-
-    # 2. Aplicação das Regras de Fluxo de Caixa
     df['Data_Caixa'] = df.apply(calcular_data_caixa, axis=1)
 
-    # 3. Filtragem pelo intervalo de Liquidação (Data_Caixa)
-    mask = (df['Data_Caixa'] >= pd.to_datetime(data_i)) & (df['Data_Caixa'] <= pd.to_datetime(data_f))
-    df_filtrado = df.loc[mask].copy()
-
     # 4. Agrupamento e Separação de Colunas
-    # Colunas Pagar e Receber baseadas no Tipo
-    fluxo_caixa = df_filtrado.groupby(['Data_Caixa', 'Tipo'])['Valor'].sum().unstack(fill_value=0)
+    fluxo_caixa = df.groupby(['Data_Caixa', 'Tipo'])['Valor'].sum().unstack(fill_value=0)
 
-    # Garantir que as colunas existam para evitar erro no cálculo
-    if 'P' not in fluxo_caixa: fluxo_caixa['P'] = 0.0
-    if 'R' not in fluxo_caixa: fluxo_caixa['R'] = 0.0
-
-    # Renomear para clareza conforme solicitado
     fluxo_caixa = fluxo_caixa.rename(columns={'P': 'Pagar', 'R': 'Receber'})
 
     # 5. Reindexação para garantir todos os dias do intervalo (inclusive vazios)
     idx = pd.date_range(data_i, data_f)
     fluxo_dia = fluxo_caixa.reindex(idx, fill_value=0)
 
-    # 6. Cálculos de Balanço e Saldo Acumulado [cite: 5]
+    #Filtra o intervalo de acordo com data_i e data_f
+    fluxo_dia = fluxo_dia.loc[data_i:data_f]
+
+    # 6. Cálculos de Balanço e saldo considerando valor inciial
     fluxo_dia["Balanço_Diario"] = fluxo_dia['Receber'] - fluxo_dia['Pagar']
     fluxo_dia["Saldo_Dia"] = fluxo_dia['Balanço_Diario'].cumsum() + valor_inicial
+
+    fluxo_dia.index = fluxo_dia.index.date
 
     # --- EXIBIÇÃO ---
     #Validação DF
     if fluxo_dia.empty:
-        st.error(":material/Warning: Nenhuma informação encontrada: Verificar data filtrada")
+        st.error(":material/Warning: Nenhuma informação encontrada")
         st.stop()
         print("df vazio")
 
