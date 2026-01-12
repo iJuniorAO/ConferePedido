@@ -185,7 +185,7 @@ if (f_produto and f_extra) or desativa_manual:
         st.write(f":material/Delete: Selecione os produtos que deseja remover da lista original: :red[{len(df)} itens]")
         
         remover_linhas = st.dataframe(
-            df[['CodProduto', 'Descricao', 'Fornecedor', 'TIPO', 'Estoq']].sort_values(by=["Estoq"]),
+            df[['CodProduto', 'Descricao', 'Fornecedor', 'TIPO', 'Estoq']],
             hide_index=True,
             selection_mode="multi-row",
             on_select="rerun"
