@@ -4,26 +4,31 @@ cookie:
   name: cookie_sistema
 credentials:
   usernames:
-    ismael_adm:
+    carol_adm:
+      email: adm@mumix.com.br
+      first_name: Carol
+      last_name: adm
+      logged_in: false
+      password: $2b$12$UCjpHYm7ekUDnphx5mxYhOHd27jYHintWxhDLBeGNaFS2jkFiWSE2
+      roles: usuario
+    ijunior:
       email: analista.adm@mumix.com.br
       failed_login_attempts: 0
       logged_in: true
       name: Ismael Junior
       password: $2b$12$JcEhH4Pt7rXUEeLc5flGa.7CBFQggGzLkEz60HYVFRxA1hUESWUsG
-      role: administrador
-    sabrina:
+      roles: cliente
+    sabrina_adm:
       email: administrativo@mumix.com.br
+      first_name: Sabrina
+      last_name: adm
       logged_in: false
-      name: cliente
-      password: $2b$12$gHt6hMwM4Kf8m3aEzJ6YKecLLZUpkl15CEk1Fv1woeOPRuYBt47S2
-      role: administrador
+      password: $2b$12$RRc4fJxAe6ejCcdpJiIE8ODtbAJSHzZARoEPOI/2ZbqW3crRn2fYi
+      roles: administrador
     usuario_teste:
       email: teste@gmail.com
-      failed_login_attempts: 0
+      first_name: NomeFulano
+      last_name: NomeCiclano
       logged_in: false
-      name: IsmaelTesteUsuario
-      password: $2b$12$.3LBUxaJXb.BI/Onf7y7n.crCCm5VP0KIjkEQmE/IACmO01hbmFIi
-      role: usuario
-preauthorized:
-  emails:
-  - mels@example.com
+      password: $2b$12$Dk7QHq.7fCbBRqqvpAl6aO97kbuTf/7Q72O7tRiUcG2z.dTVQrzZK
+      roles: cliente

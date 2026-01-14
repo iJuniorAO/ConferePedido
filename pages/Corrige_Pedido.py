@@ -4,6 +4,11 @@ import re
 from datetime import datetime, time
 import io
 
+
+if not st.session_state["roles"] in ["administrador"]:
+    st.markdown("# :material/block: Acesso Negado")
+    st.stop()
+
 # --- MELHORIAS ---
 #   2. se a sigla estiver junto à descrição separar [cxBISCOITO] = [cx] [biscoito]
 

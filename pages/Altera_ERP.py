@@ -17,6 +17,12 @@ from rapidfuzz import process, fuzz
 #       Informar qt linhas no pedido q qt linhas finais
 #       st.sucess caso não ocorra nenhum erro
 
+
+if not st.session_state["roles"] in ["administrador", "usuario"]:
+    st.markdown("# :material/block: Acesso Negado")
+    st.stop()
+
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="Conversor de Pedidos",

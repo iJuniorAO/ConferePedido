@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 import re
 
+if not st.session_state["roles"] in ["administrador", "usuario"]:
+    st.markdown("# :material/block: Acesso Negado")
+    st.stop()
+
 # --- FUNÇÕES E DEFINIÇÕES
 def abrir_txt_st(uploaded_file, colunas):
     """Lê o arquivo carregado no Streamlit."""
