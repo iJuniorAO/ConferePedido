@@ -5,6 +5,8 @@ import numpy as np
 import io
 import re
 from rapidfuzz import process, fuzz
+from datetime import datetime, time
+
 
 #   MELHORIAS
 #       Mudar index e corrigir para ser igual arquivo txt
@@ -29,7 +31,6 @@ def abrir_txt_auto(uploaded_file, colunas):
         return pd.read_csv(io.StringIO(uploaded_file), sep='|', header=None, names=colunas, encoding="latin1")
     except Exception as e:
         st.error(f"Erro: ao ler arquivo automático{e}")
-
 def abrir_txt_st(uploaded_file, colunas):
     """Lê o arquivo carregado no Streamlit."""
     try:
@@ -148,7 +149,20 @@ def carregar_dados_onedrive(input_texto):
     except Exception as e:
         st.error(f"Erro ao processar URL: {e}")
         return None
+def confere_hr_pedido():
+    if AGORA.time() >= time(10,5):
+        st.markdown("### :red[:material/Timer_Off:] Prazo de Pedido finalizado!")
+    elif AGORA.time() >= PRAZO:
+        st.markdown("### :orange[:material/More_Time:] Prazo de Pedido finalizado! - Tolerância 5 minutos")
+    elif AGORA.time() >= time(9,45):
+        st.markdown("### :yellow[:material/Clock_Loader_90:] Faltam 15min para fazerem pedidos")
+    elif AGORA.time() >= time(9,0):
+        st.markdown("### :green[:material/Clock_Loader_60:] Faltam 1 hora para o prazo do pedido ")
+    else:
+        st.markdown("### :green[:material/Clock_Loader_10:] Dentro do prazo para Pedidos")
 
+AGORA = datetime.now()
+PRAZO = time(10,0)
 colunas_produto = ["CodProduto",
                    "CodGrupo",
                    "Descricao",
@@ -174,6 +188,10 @@ produtos_cadastrados = 0
 
 # --- INTERFACE STREAMLIT ---
 st.title("💾 Conversor de Pedidos para Importação")
+
+confere_hr_pedido()
+
+st.space()
 
 #Tabs para base de dados e importação pedidos
 tab1,tab2 = st.tabs(["📦 Base de Dados","📝 Importação de Pedidos"])

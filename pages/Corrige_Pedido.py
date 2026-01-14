@@ -37,15 +37,15 @@ def procuranumero(linha):
     return None
 def confere_hr_pedido():
     if AGORA.time() >= time(10,5):
-        st.write("❌ Prazo de Pedido finalizado!")
+        st.write(":red[:material/Timer_Off:] Prazo de Pedido finalizado!")
     elif AGORA.time() >= PRAZO:
-        st.write("🕛 Prazo de Pedido finalizado! - Tolerância 5 minutos")
+        st.write(":orange[:material/More_Time:] Prazo de Pedido finalizado! - Tolerância 5 minutos")
     elif AGORA.time() >= time(9,45):
-        st.write("⚠️ Faltam 15min para fazerem pedidos")
+        st.write(":yellow[:material/Clock_Loader_90:] Faltam 15min para fazerem pedidos")
     elif AGORA.time() >= time(9,0):
-        st.write("🟠 Faltam 1 hora para o prazo do pedido ")
+        st.write(":green[:material/Clock_Loader_60:] Faltam 1 hora para o prazo do pedido ")
     else:
-        st.write("🟢 Dentro do prazo para Pedidos")
+        st.write(":green[:material/Clock_Loader_10:] Dentro do prazo para Pedidos")
 def barra_lojas_pedido():
     enviados = lojas_editado["Pedido"].sum()
     total = len(lojas_editado)
