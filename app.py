@@ -73,9 +73,6 @@ except Exception as e:
     st.session_state
     stauth
 
-#Somente mostra caso não esteja logado
-if not st.session_state.get("authentication_status"):
-    st.write("Não logado")
 
 #usuário logado
 if st.session_state.get("authentication_status"):
@@ -161,8 +158,11 @@ if st.session_state.get("authentication_status"):
                 st.markdown(f"### {permissao.title()}")
                 for usuario in cadastro_usuarios:
                     if cadastro_usuarios[usuario]["roles"] == permissao:
-                        st.write(usuario)
-            
+                        if cadastro_usuarios[usuario]["logged_in"] == True:
+                            st.write(f":green[{usuario}]")
+                        else:
+                            st.write(f":red[{usuario}]")
+
             usuarios_validos = [
                 nome for nome, info in config["credentials"]["usernames"].items()
                 if info.get("roles") is not None and info.get("roles") in ["cliente", "usuario"]
