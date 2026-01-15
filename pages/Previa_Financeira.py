@@ -56,7 +56,7 @@ COLUNAS_PLANILHA = [
 
 # --- INÍCIO DO SCRIPT STREAMLIT ---
 st.set_page_config(page_title="Previsão Financeira", layout="wide")
-st.title("📊 Controle de Fluxo de Caixa")
+st.title(":material/Bar_Chart: Controle de Fluxo de Caixa")
 
 # --- BARRA LATERAL (INPUTS) ---
 with st.sidebar:
@@ -64,11 +64,15 @@ with st.sidebar:
     arquivo_upload = st.file_uploader("Suba sua planilha Excel", type=["xlsx"])
     valor_inicial = st.number_input("Saldo Inicial (R$)", step=100.0)
 
+    ignorar_previa = st.toggle("Ignorar Previa")
+
     col1, col2 = st.columns(2)
     with col1:
         data_i = st.date_input("Data Inicial", value=(HOJE), format="DD/MM/YYYY")
     with col2:
         data_f = st.date_input("Data Final", value=(ULTIMO_DIA), format="DD/MM/YYYY")
+    
+    
 
 # --- PROCESSAMENTO ---
 if arquivo_upload:
@@ -91,6 +95,9 @@ if arquivo_upload:
 
     df = verifica_corrige_df(df)
     df['Data_Caixa'] = df.apply(calcular_data_caixa, axis=1)
+
+    if ignorar_previa:
+        df = df[df["Prev."] == "N"]
 
     # 4. Agrupamento e Separação de Colunas
     fluxo_caixa = df.groupby(['Data_Caixa', 'Tipo'])['Valor'].sum().unstack(fill_value=0)
@@ -122,31 +129,33 @@ if arquivo_upload:
     # Métricas de Resumo 
     m1, m2, m3 = st.columns(3)
     #m1
-    m1.metric("Total a Receber", f"R$ {fluxo_dia['Receber'].sum():,.2f}")
+    m1.metric(":green[:material/Place_Item: Total a Receber]", f"R$ {fluxo_dia['Receber'].sum():,.2f}")
     #m2
-    m2.metric("Total a Pagar", f"R$ {fluxo_dia['Pagar'].sum():,.2f}")   
+    m2.metric(":red[:material/Move_Item: Total a Pagar]", f"R$ {fluxo_dia['Pagar'].sum():,.2f}")   
     #m3 com diferença de cor
     if diferenca_saldo >=0:
-        m3.metric("Saldo Final Projetado", f"R$ {fluxo_dia['Saldo_Dia'].iloc[-1]:,.2f}", delta=f"+ R$ {abs(diferenca_saldo):,.2f}")
+        m3.metric(":material/Money_range: Saldo Final Projetado", f"R$ {fluxo_dia['Saldo_Dia'].iloc[-1]:,.2f}", delta=f"+ R$ {abs(diferenca_saldo):,.2f}")
     else:
-        m3.metric("Saldo Final Projetado", f"R$ {fluxo_dia['Saldo_Dia'].iloc[-1]:,.2f}", delta=f"- R$ {abs(diferenca_saldo):,.2f}")
+        m3.metric(":material/Money_range: Saldo Final Projetado", f"R$ {fluxo_dia['Saldo_Dia'].iloc[-1]:,.2f}", delta=f"- R$ {abs(diferenca_saldo):,.2f}")
 
     st.divider()
 
     # Gráfico de Evolução do Saldo
-    st.subheader("Evolução do Saldo Acumulado")
+    st.subheader(":material/Area_chart: Evolução do Saldo Acumulado")
     if fluxo_dia['Saldo_Dia'].iloc[-1]>0:
         st.area_chart(fluxo_dia["Saldo_Dia"], color="#004777")
     else:
         st.area_chart(fluxo_dia["Saldo_Dia"], color="#E40039")
 
     # Tabela de Dados
-    st.subheader("Detalhamento Diário")
+    st.subheader(":material/Unfold_More: Detalhamento Diário")
     #st.dataframe(fluxo_dia.style.format("R$ {:,.2f}"), use_container_width=True)
     num_cols = fluxo_dia.select_dtypes(include="number").columns
     st.dataframe(
         fluxo_dia
             .style.format("R$ {:,.2f}")
-            .applymap(negativo_vermelho))
+            .applymap(negativo_vermelho),
+        height=720
+            )
 else:
     st.info("Aguardando o upload da planilha Excel para processar os dados.")
