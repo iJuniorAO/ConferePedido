@@ -7,18 +7,12 @@ import re
 from rapidfuzz import process, fuzz
 from datetime import datetime, time
 
-
 #   MELHORIAS
+#
+#    LISTA
 #       Mudar index e corrigir para ser igual arquivo txt
-#       # Status de carregamento - mostrar carregando e concluído quando importar txt base dados
-#       Lista > Importar produto.txt e criar criar lista no aplicativo
-#       Importação de Pedidos > Importação automática do arquivo txt
-#       Importação de Pedidos > Processamento concluído somente mostrar após botão do download aparecer
-#       Importação de Pedidos > Mostrar qt de linhas que foi puxado
 #       Importação de Pedidos > Mostrar qt de linhas com erro na qtde
-#       Importação de Pedidos > Botão > Usar IA para tentar corrigir descrição com valores mostraods
 #       Informar qt linhas no pedido q qt linhas finais
-#       st.sucess caso não ocorra nenhum erro
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -183,8 +177,10 @@ colunas_Pedidos = ["QtCx", "Sigla", "Descricao"]
 Linhas_Pedidos = 0
 link_input = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQAQ5ov01QmTRrwGyIKptyJRAWoT1Q-6gTX63LzDircBkzc?e=EeXhrx"
 link_input2 = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQDaxm6b45iRQ7SrghOX_st1Afw7MT3ZQranHYdqwuTYh8s?e=vLWBGV"
+
 desativa_manual = False
 produtos_cadastrados = 0
+LOJAS = ['Abilio Machado', 'Brigadeiro', 'Cabana', 'Cabral', 'Caete', 'Centro Betim', 'Eldorado', 'Goiania', 'Jardim Alterosa', 'Lagoa Santa', 'Laguna', 'Laranjeiras', 'Neves', 'Nova Contagem', 'Novo Progresso', 'Palmital', 'Para de Minas', 'Pindorama', 'Santa Cruz', 'Santa Helena', 'Serrano', 'Silva Lobo', 'São Luiz', 'Venda Nova']
 
 # --- INTERFACE STREAMLIT ---
 st.title("💾 Conversor de Pedidos para Importação")
@@ -220,7 +216,14 @@ with tab2:
         st.header("Upload de Pedidos da Loja")
         f_pedido = st.file_uploader("📝 Pedido da Loja (.txt)", type="txt")
 
+
+loja_pedido = st.selectbox("Seleciona Loja", LOJAS, index=None, placeholder="Seleciona a loja que realizou o pedido")
+st.space()
+
 if ((f_produto and f_extra) or desativa_manual) and f_pedido:
+    if not loja_pedido:
+        st.error(":material/Priority_High: Selecione uma Loja")
+        st.stop()
     # --- PROCESSAMENTO ---
     with st.status("Processando dados...", expanded=True) as status:
         # Carregamento
@@ -396,7 +399,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                     st.download_button(
                         label=f"📥 Baixar Pedido {tipo}",
                         data=output.getvalue(),
-                        file_name=f"Pedido_{tipo}.txt",
+                        file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
                         mime="text/plain"
                     )
                 else:
@@ -419,11 +422,12 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                     st.download_button(
                         label=f"📥 Baixar Pedido {tipo}",
                         data=output.getvalue(),
-                        file_name=f"Pedido_{tipo}.txt",
+                        file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
                         mime="text/plain"
                     )
                 else:
                     st.info(f"Sem itens para {tipo}")
+    
 
 elif f_produto and f_extra and not f_pedido:
     #validação de upload de arquivos
@@ -438,28 +442,15 @@ else:
     st.info(":material/Warning: Aguardando o upload do arquivos iniciais para iniciar.")
 
 with st.sidebar:
-    st.markdown("""
-        ## Portal Pedidos
-        ### Correções implementadas:
 
-        ### Preparação:
-        1. Insere o arquivo produto.txt                    
-        2. Insere o arquivo produtoextra.txt
-
-        ### Processo de Conversão:
-        1. Importa o pedido da loja
-        2. Verifica ERROS - Qt de cx
-        3. Verifica ERROS - Descrição e Fator Conversão
-        """)
-    st.divider()
     st.write(f"Produtos cadastrados: :blue[{produtos_cadastrados}]")
 
-
-    st.subheader("Link para produto.txt:")
-    st.link_button("Clique aqui",
-                    r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQAQ5ov01QmTRrwGyIKptyJRAWoT1Q-6gTX63LzDircBkzc?e=EeXhrx"
-                    )
-    st.subheader("Link para produtoextra.txt:")
-    st.link_button("Clique aqui",
-                    r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQDaxm6b45iRQ7SrghOX_st1Afw7MT3ZQranHYdqwuTYh8s?e=vLWBGV"
-                    )
+    with st.expander("Link para arquivo .txt"):
+        st.subheader("Link para produto.txt:")
+        st.link_button("Clique aqui",
+                        r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQAQ5ov01QmTRrwGyIKptyJRAWoT1Q-6gTX63LzDircBkzc?e=EeXhrx"
+                        )
+        st.subheader("Link para produtoextra.txt:")
+        st.link_button("Clique aqui",
+                        r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQDaxm6b45iRQ7SrghOX_st1Afw7MT3ZQranHYdqwuTYh8s?e=vLWBGV"
+                        )
