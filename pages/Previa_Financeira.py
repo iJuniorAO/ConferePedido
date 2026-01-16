@@ -56,7 +56,6 @@ COLUNAS_PLANILHA = [
 
 # --- INÍCIO DO SCRIPT STREAMLIT ---
 st.set_page_config(page_title="Previsão Financeira", layout="wide")
-st.title(":material/Bar_Chart: Controle de Fluxo de Caixa")
 
 # --- BARRA LATERAL (INPUTS) ---
 with st.sidebar:
@@ -99,6 +98,30 @@ if arquivo_upload:
     if ignorar_previa:
         df = df[df["Prev."] == "N"]
 
+    st.markdown("# :material/Filter_Alt: Filtros")
+
+    with st.expander(":material/Delete: Desejo Remover títulos"):
+
+        remover_todas_linhas = st.multiselect(":material/Close: Remover todos títulos: ",options=df["Título"].unique(),placeholder="Selecione uma vez e remova todos títulos")
+        df = df[~df["Título"].isin(remover_todas_linhas)]       
+
+        st.divider()
+
+        st.markdown(":material/Close_Small: Selecione os lançamentos que deseja remover")
+
+        remover_linhas = st.dataframe(
+            df[['Título', 'Nat. Lançamento', 'Vencimento', 'Forma Pagto', 'Valor', 'Tipo', 'Prev.']],
+            hide_index=True,
+            selection_mode="multi-row",
+            on_select="rerun")
+        
+        #Pega o dict e remove as linhas selecionadas
+        ind_remover_linhas = remover_linhas["selection"]["rows"]
+        df = df.drop(df.index[ind_remover_linhas]).copy()
+
+
+
+
     # 4. Agrupamento e Separação de Colunas
     fluxo_caixa = df.groupby(['Data_Caixa', 'Tipo'])['Valor'].sum().unstack(fill_value=0)
 
@@ -126,6 +149,8 @@ if arquivo_upload:
 
     diferenca_saldo = fluxo_dia["Saldo_Dia"].iloc[-1] - (valor_inicial)
     
+    st.title(":material/Bar_Chart: Controle de Fluxo de Caixa")
+
     # Métricas de Resumo 
     m1, m2, m3 = st.columns(3)
     #m1
@@ -148,6 +173,8 @@ if arquivo_upload:
         st.area_chart(fluxo_dia["Saldo_Dia"], color="#E40039")
 
     # Tabela de Dados
+
+    st.divider()
     st.subheader(":material/Unfold_More: Detalhamento Diário")
     #st.dataframe(fluxo_dia.style.format("R$ {:,.2f}"), use_container_width=True)
     num_cols = fluxo_dia.select_dtypes(include="number").columns
