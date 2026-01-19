@@ -8,6 +8,10 @@ import io
 if not st.session_state["roles"] in ["administrador"]:
     st.markdown("# :material/block: Acesso Negado")
     st.stop()
+if not st.session_state["usuario_ativo"]:
+    st.markdown("# :red[:material/Block: Usuário Inativado]")
+    st.stop()
+
 
 # --- MELHORIAS ---
 #   2. se a sigla estiver junto à descrição separar [cxBISCOITO] = [cx] [biscoito]

@@ -6,6 +6,10 @@ if not st.session_state["roles"] in ["administrador", "usuario"]:
     st.markdown("# :material/block: Acesso Negado")
     st.stop()
 
+if not st.session_state["usuario_ativo"]:
+    st.markdown("# :red[:material/Block: Usuário Inativado]")
+    st.stop()
+
 # --- FUNÇÕES E DEFINIÇÕES
 def abrir_txt_st(uploaded_file, colunas):
     """Lê o arquivo carregado no Streamlit."""

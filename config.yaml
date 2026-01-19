@@ -6,29 +6,34 @@ credentials:
   usernames:
     carol_adm:
       email: adm@mumix.com.br
+      failed_login_attempts: 0
       first_name: Carol
+      is_active: true
       last_name: adm
       logged_in: false
-      password: $2b$12$UCjpHYm7ekUDnphx5mxYhOHd27jYHintWxhDLBeGNaFS2jkFiWSE2
-      roles: usuario
+      password: $2b$12$XQzsIZC1f6K.ogB.Hpe26.WMS1hZ1Reb2AsUeSDmIizWOAg8PoAbK
+      roles: administrador
     ijunior:
       email: analista.adm@mumix.com.br
       failed_login_attempts: 0
+      is_active: true
       logged_in: true
       name: Ismael Junior
       password: $2b$12$JcEhH4Pt7rXUEeLc5flGa.7CBFQggGzLkEz60HYVFRxA1hUESWUsG
+      roles: administrador
+    palmital:
+      email: palmital@gmail.com
+      first_name: Loja
+      is_active: true
+      last_name: loja
+      logged_in: false
+      password: $2b$12$0z/Dbc8rQ72GX9M.m0Nc0OmV4hEC4lSIRiHbeLwe8MXHgD.mbjC1C
       roles: cliente
     sabrina_adm:
       email: administrativo@mumix.com.br
       first_name: Sabrina
+      is_active: true
       last_name: adm
       logged_in: false
       password: $2b$12$RRc4fJxAe6ejCcdpJiIE8ODtbAJSHzZARoEPOI/2ZbqW3crRn2fYi
       roles: administrador
-    usuario_teste:
-      email: teste@gmail.com
-      first_name: NomeFulano
-      last_name: NomeCiclano
-      logged_in: false
-      password: $2b$12$Dk7QHq.7fCbBRqqvpAl6aO97kbuTf/7Q72O7tRiUcG2z.dTVQrzZK
-      roles: cliente

@@ -21,6 +21,9 @@ from rapidfuzz import process, fuzz
 if not st.session_state["roles"] in ["administrador", "usuario"]:
     st.markdown("# :material/block: Acesso Negado")
     st.stop()
+if not st.session_state["usuario_ativo"]:
+    st.markdown("# :red[:material/Block: Usuário Inativado]")
+    st.stop()
 
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
