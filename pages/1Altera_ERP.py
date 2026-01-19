@@ -6,6 +6,7 @@ import io
 import re
 from rapidfuzz import process, fuzz
 from datetime import datetime, time
+from supabase import create_client, Client
 
 #   MELHORIAS
 #
@@ -14,10 +15,6 @@ from datetime import datetime, time
 #       Importação de Pedidos > Mostrar qt de linhas com erro na qtde
 #       Informar qt linhas no pedido q qt linhas finais
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(
-    page_title="Conversor de Pedidos",
-    layout="wide")
 
 # --- FUNÇÕES DE PROCESSAMENTO (Adaptadas do seu arquivo original) ---
 def abrir_txt_auto(uploaded_file, colunas):
@@ -178,19 +175,32 @@ Linhas_Pedidos = 0
 link_input = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQAQ5ov01QmTRrwGyIKptyJRAWoT1Q-6gTX63LzDircBkzc?e=EeXhrx"
 link_input2 = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQDaxm6b45iRQ7SrghOX_st1Afw7MT3ZQranHYdqwuTYh8s?e=vLWBGV"
 
+#Inicialização do BD
+url = st.secrets["connections"]["supabase"]["url"]
+key = st.secrets["connections"]["supabase"]["key"]
+supabase: Client = create_client(url, key)
+
+
 desativa_manual = False
 produtos_cadastrados = 0
 LOJAS = ['Abilio Machado', 'Brigadeiro', 'Cabana', 'Cabral', 'Caete', 'Centro Betim', 'Eldorado', 'Goiania', 'Jardim Alterosa', 'Lagoa Santa', 'Laguna', 'Laranjeiras', 'Neves', 'Nova Contagem', 'Novo Progresso', 'Palmital', 'Para de Minas', 'Pindorama', 'Santa Cruz', 'Santa Helena', 'Serrano', 'Silva Lobo', 'São Luiz', 'Venda Nova']
 
+
+
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(
+    page_title="Conversor de Pedidos",
+    layout="wide")
+
 # --- INTERFACE STREAMLIT ---
-st.title("💾 Conversor de Pedidos para Importação")
+st.title(":material/Folder_Check_2: Conversor de Pedidos para Importação")
 
 confere_hr_pedido()
 
 st.space()
 
 #Tabs para base de dados e importação pedidos
-tab1,tab2 = st.tabs(["📦 Base de Dados","📝 Importação de Pedidos"])
+tab1,tab2 = st.tabs([":material/Database: Base de Dados",":material/Database_Upload: Importação de Pedidos"])
 # 1. UPLOAD DE ARQUIVOS (Substitui os caminhos C:\...) [cite: 5]
 with tab1:
     st.header("Upload de Bases de Dados")
@@ -215,7 +225,6 @@ with tab2:
     with tabela1[1]:
         st.header("Upload de Pedidos da Loja")
         f_pedido = st.file_uploader("📝 Pedido da Loja (.txt)", type="txt")
-
 
 loja_pedido = st.selectbox("Seleciona Loja", LOJAS, index=None, placeholder="Seleciona a loja que realizou o pedido")
 st.space()
@@ -402,6 +411,17 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                         file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
                         mime="text/plain"
                     )
+                    #   --- Envia para bd  ---
+                    data,count = supabase.table("PedidosLojas").insert({
+                        "data_pedido": AGORA.strftime("%Y-%m-%d"),
+                        "hora_pedido": AGORA.strftime("%H:%M"),
+                        "loja": loja_pedido,
+                        "tipo_pedido": tipo,
+                        "pedido_erp": output.getvalue(),
+                        "pedido_original": f_pedido.getvalue(),
+                        "obs": "TESTE",
+                    }).execute()
+                    st.success(f"Pedido {loja_pedido} salvo com sucesso!")
                 else:
                     st.info(f"Sem itens para {tipo}")
     #Possui correções automáticas
@@ -427,8 +447,9 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                     )
                 else:
                     st.info(f"Sem itens para {tipo}")
-    
 
+
+#todos arquivos bd enviados menos o pedido
 elif f_produto and f_extra and not f_pedido:
     #validação de upload de arquivos
     if f_produto.name != "00001produto.txt":

@@ -1,6 +1,7 @@
 import streamlit as st
 
 # --- CONFIGURAÇÃO PAGINA ---
+
 st.set_page_config(page_title="Sistema Mumix", layout="wide")
 
 st.title(":material/Home: Página inicial")
