@@ -359,7 +359,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                         file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
                         mime="text/plain"
                     )
-                    salvar_pedido_supabase(loja_pedido, tipo, output, f_pedido, "PedidosLojas", "TESTE")
+                    salvar_pedido_supabase(loja_pedido, tipo, output, f_pedido, "PedidosLojas")
                 else:
                     st.info(f"Sem itens para {tipo}")
 
