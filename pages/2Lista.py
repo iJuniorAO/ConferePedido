@@ -5,18 +5,14 @@ import io
 import requests
 
 # --- FUNÇÕES E DEFINIÇÕES
-def abrir_txt_st(uploaded_file, colunas):
-    """Lê o arquivo carregado no Streamlit."""
+def abrir_arquivo_txt(arquivo, colunas=None):
     try:
-        return pd.read_csv(uploaded_file, sep="|", header=None, names=colunas, encoding="latin1")
+        if isinstance(arquivo, str):
+            arquivo = io.StringIO(arquivo)
+        return pd.read_csv(arquivo, sep="|", header=None, names=colunas, encoding="latin1")
     except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
-        return None
-def abrir_txt_auto(uploaded_file, colunas):
-    try:
-        return pd.read_csv(io.StringIO(uploaded_file), sep='|', header=None, names=colunas, encoding="latin1")
-    except Exception as e:
-        st.error(f"Erro: ao ler arquivo automático{e}")
+        st.error(f"Erro ao ler arquivo {e}")
+        st.stop()
 @st.cache_data
 def carregar_dados_onedrive(input_texto):
     try:
@@ -83,31 +79,30 @@ FORNECEDORES = marcas = [
     "UNIBABY",
     "YPE"
 ]
-link_input = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQAQ5ov01QmTRrwGyIKptyJRAWoT1Q-6gTX63LzDircBkzc?e=EeXhrx"
-link_input2 = r"https://mumulaticinios-my.sharepoint.com/:t:/g/personal/analista_adm_mumix_com_br/IQDaxm6b45iRQ7SrghOX_st1Afw7MT3ZQranHYdqwuTYh8s?e=vLWBGV"
+link_produto = st.secrets["onedrive"]["links"]["produto"]
+link_produto_extra = st.secrets["onedrive"]["links"]["produto_extra"]
 desativa_manual = False
 produtos_cadastrados = 0
-
 
 # --- CONF PAGINA
 st.set_page_config(
     page_title="Editor de Lista",
     layout="wide")
 
-st.title("📎 Editor de :red[Lista]")
+st.title(":material/Attach_File: Editor de :red[Lista]")
 
 # --- LAYOUT PAGINA
 bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?")
 if bd_automatico:
-    f_produto_auto = carregar_dados_onedrive(link_input)
-    f_extra_auto = carregar_dados_onedrive(link_input2)
+    f_produto_auto = carregar_dados_onedrive(link_produto)
+    f_extra_auto = carregar_dados_onedrive(link_produto_extra)
     desativa_manual = True
 col1, col2 = st.columns(2)
 with col1:
-    f_produto = st.file_uploader("📦 Arquivo 00001produto.txt", disabled=desativa_manual, type="txt")
+    f_produto = st.file_uploader(":material/Barcode: Arquivo 00001produto.txt", disabled=desativa_manual, type="txt")
 
 with col2:
-    f_extra = st.file_uploader("➕ Arquivo 00001produtoextra.txt", disabled=desativa_manual, type="txt")
+    f_extra = st.file_uploader(":material/Add: Arquivo 00001produtoextra.txt.txt", disabled=desativa_manual, type="txt")
 
 
 st.subheader(":material/Toggle_On: Excessões: O que retirar da lista")
@@ -126,8 +121,8 @@ if (f_produto and f_extra) or desativa_manual:
         #   1. Inicialização
         #Abre df
         if desativa_manual:
-            df = abrir_txt_auto(f_produto_auto, COLUNAS_PRODUTOS)
-            df_extra = abrir_txt_auto(f_extra_auto, COLUNAS_PRODUTOS_EXTRA)
+            df = abrir_arquivo_txt(f_produto_auto, COLUNAS_PRODUTOS)
+            df_extra = abrir_arquivo_txt(f_extra_auto, COLUNAS_PRODUTOS_EXTRA)
         else:
             if f_produto.name != "00001produto.txt":
                 st.error(":material/Close: 00001produto.txt erro ao carregar")
@@ -135,8 +130,8 @@ if (f_produto and f_extra) or desativa_manual:
             if f_extra.name != "00001produtoextra.txt":
                 st.error(":material/Close: 00001produtoextra.txt erro ao carregar")
                 st.stop()
-            df = abrir_txt_st(f_produto, COLUNAS_PRODUTOS)
-            df_extra = abrir_txt_st(f_extra, COLUNAS_PRODUTOS_EXTRA)
+            df = abrir_arquivo_txt(f_produto, COLUNAS_PRODUTOS)
+            df_extra = abrir_arquivo_txt(f_extra, COLUNAS_PRODUTOS_EXTRA)
         
         produtos_cadastrados = len(df)
         # Merge Produto + Extra
@@ -248,8 +243,10 @@ else:
 
 #   --- SIDEBAR
 with st.sidebar:
-    st.subheader("Link para txt atualizado:")
-    st.link_button("Clique aqui",
-                r"https://mumulaticinios-my.sharepoint.com/my?id=%2Fpersonal%2Fanalista%5Fadm%5Fmumix%5Fcom%5Fbr%2FDocuments%2FBaseDados%2FNOVO&ga=1"
-                )
+    with st.expander("Link para arquivo .txt"):
+        st.subheader("Link para produto.txt:")
+        st.link_button("Clique aqui", link_produto)
+
+        st.subheader("Link para produtoextra.txt:")
+        st.link_button("Clique aqui", link_produto_extra)
     st.write(f"Produtos cadastrados: :blue[{produtos_cadastrados}]")
