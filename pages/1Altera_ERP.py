@@ -144,10 +144,10 @@ def processar_pedidos(df, df_extra, df_Pedido_Loja):
     df = df.merge(df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left")
 
     CONDICOES = [
-            df["CodGrupo"].isin([9, 14]),
-            df["ListaCodCaract"].astype(str).str.contains("000002", na=False)
+            df["ListaCodCaract"].astype(str).str.contains("000002", na=False),
+            df["CodGrupo"].isin([9, 14])
         ]
-    df["TIPO"] = np.select(CONDICOES, ["CONG", "PESO"], default="SECO")
+    df["TIPO"] = np.select(CONDICOES, ["PESO", "CONG"], default="SECO")
 
     ultimo = df["Descricao"].astype(str).str.split().str[-1]
     df["CONV"] = np.where(ultimo.str.isdigit(), ultimo, 1).astype(float)
@@ -217,7 +217,7 @@ link_produto = st.secrets["onedrive"]["links"]["produto"]
 link_produto_extra = st.secrets["onedrive"]["links"]["produto_extra"]
 desativa_manual = False
 produtos_cadastrados = 0
-LOJAS = ['Abilio Machado', 'Brigadeiro', 'Cabana', 'Cabral', 'Caete', 'Centro Betim', 'Eldorado', 'Goiania', 'Jardim Alterosa', 'Lagoa Santa', 'Laguna', 'Laranjeiras', 'Neves', 'Nova Contagem', 'Novo Progresso', 'Palmital', 'Para de Minas', 'Pindorama', 'Santa Cruz', 'Santa Helena', 'Serrano', 'Silva Lobo', 'São Luiz', 'Venda Nova']
+LOJAS = ['Abilio Machado', 'Brigadeiro', 'Cabana', 'Cabral', 'Caete', 'Centro Betim', 'Eldorado', 'Goiania', 'Jardim Alterosa', 'Lagoa Santa', 'Laguna', 'Laranjeiras', 'Neves', 'Nova Contagem', 'Novo Progresso', 'Palmital', 'Para de Minas', 'Pindorama', 'Santa Cruz', 'Santa Helena', 'Serrano', 'Silva Lobo', 'São Luiz', 'Venda Nova', "TESTE"]
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -279,7 +279,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                 st.stop()
             df = abrir_arquivo_txt(f_produto, colunas_produto)
             df_extra = abrir_arquivo_txt(f_extra, colunas_produto_extra)
-        
+
         # Importa Pedido da Loja
         f_pedido = limpa_texto(f_pedido)
         df_Pedido_Loja, df_Erro_Qt, Linhas_Pedidos = trata_pedido_loja(abrir_arquivo_txt(f_pedido), colunas_Pedidos)
@@ -326,6 +326,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
         else:
             st.success("Sem erro de exportação")
             st.toast("Todos itens importados",icon="✅")
+            aplicar_correcao=False
     
     status.update(label="Processamento concluído!", state="complete")
     

@@ -4,6 +4,10 @@ import streamlit as st
 
 st.set_page_config(page_title="Sistema Mumix", layout="wide", initial_sidebar_state="collapsed")
 
+if st.query_params.get("debugger") == "true":
+    st.session_state.debugger=True
+    st.error(":material/Terminal: APP EM TESTE")
+
 st.title(":material/Home: Página inicial")
 
 st.title(":material/Badge: Painel de Controle")
