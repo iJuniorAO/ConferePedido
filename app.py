@@ -13,8 +13,6 @@ supabase: Client = create_client(url,key)
 if st.query_params.get("debugger") == "true":
     st.session_state.debugger=True
     st.error(":material/Terminal: APP EM TESTE")
-
-
 st.title(":material/Home: Página inicial")
 
 st.title(":material/Badge: Painel de Controle")
