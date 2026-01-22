@@ -131,6 +131,13 @@ def carregar_dados_onedrive(input_texto):
     except Exception as e:
         st.error(f"Erro ao processar URL: {e}")
         return None
+@st.cache_data
+def carregar_lojas_supabase():
+    resposta = supabase.table("Lojas").select("*").order("Codigo").execute()
+    LOJAS_DICT = {}
+    for i in resposta.data:
+        LOJAS_DICT[i["Filial"]]=i["Grupo"]
+    return LOJAS_DICT
 def confere_prazo_pedido():
     for descricao, horario_limite, cor, icone, msg in REGRAS_PRAZO:
         if AGORA.time() >= horario_limite:
@@ -217,12 +224,15 @@ link_produto = st.secrets["onedrive"]["links"]["produto"]
 link_produto_extra = st.secrets["onedrive"]["links"]["produto_extra"]
 desativa_manual = False
 produtos_cadastrados = 0
-LOJAS = ['Abilio Machado', 'Brigadeiro', 'Cabana', 'Cabral', 'Caete', 'Centro Betim', 'Eldorado', 'Goiania', 'Jardim Alterosa', 'Lagoa Santa', 'Laguna', 'Laranjeiras', 'Neves', 'Nova Contagem', 'Novo Progresso', 'Palmital', 'Para de Minas', 'Pindorama', 'Santa Cruz', 'Santa Helena', 'Serrano', 'Silva Lobo', 'São Luiz', 'Venda Nova']
+LOJAS = ['Abilio Machado', 'Brigadeiro', 'Cabana', 'Cabral', 'Caete', 'Centro Betim', 'Eldorado', 'Goiania', 'Jardim Alterosa', 'Lagoa Santa', 'Laguna', 'Laranjeiras', 'Neves', 'Nova Contagem', 'Novo Progresso', 'Palmital', 'Para de Minas', 'Pindorama', 'Santa Cruz', 'Santa Helena', 'Serrano', 'Silva Lobo', 'São Luiz', 'Venda Nova', 'teste']
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="Conversor de Pedidos",
     layout="wide")
+
+if st.session_state.get("debugger"):
+    st.error(":material/Terminal: APP EM TESTE")
 
 #Inicialização do BD
 url = st.secrets["connections"]["supabase"]["url"]
@@ -243,6 +253,7 @@ with tab1:
     if bd_automatico:
         f_produto_auto = carregar_dados_onedrive(link_produto)
         f_extra_auto = carregar_dados_onedrive(link_produto_extra)
+        LOJAS = carregar_lojas_supabase()
         desativa_manual = True
 
     col1, col2 = st.columns(2)
@@ -257,7 +268,7 @@ with tab2:
         st.header("Upload de Pedidos da Loja")
         f_pedido = st.file_uploader(":material/Article: Pedido da Loja (.txt)", type="txt")
 
-loja_pedido = st.selectbox("Seleciona Loja", LOJAS, index=None, placeholder="Seleciona a loja que realizou o pedido")
+loja_pedido = st.selectbox(":red[Seleciona Loja]", LOJAS, index=None, placeholder="Seleciona a loja que realizou o pedido")
 st.space()
 
 if ((f_produto and f_extra) or desativa_manual) and f_pedido:
@@ -292,7 +303,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
         # --- EXIBIÇÃO DE ERROS ---
         if not df_Erro_Qt.empty or not df_Erro_Desc.empty:
             aplicar_correcao = False
-            with st.expander("⚠️ Ver Erros de Importação"):
+            with st.expander(":orange[:material/Warning:] Ver Erros de Importação", expanded=True):
                 if not df_Erro_Qt.empty:
                     st.warning(f"[{len(df_Erro_Qt)}] Linhas com erro na quantidade:")
                     st.dataframe(df_Erro_Qt)
@@ -322,46 +333,48 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
                         df_Pedido_Corrigido = df_Pedido_Loja.copy()
                         df_Pedido_Corrigido["Descricao"] = df_Pedido_Corrigido["Descricao"].replace(mapeamento)
 
-                        df_Pedido_Final, df_Erro_Desc, _ = processar_pedidos(df, df_extra, df_Pedido_Corrigido)              
+                        df_Pedido_Final, df_Erro_Desc, _ = processar_pedidos(df, df_extra, df_Pedido_Corrigido)                                
         else:
             st.success("Sem erro de exportação")
             st.toast("Todos itens importados",icon="✅")
+            aplicar_correcao=False
     
     status.update(label="Processamento concluído!", state="complete")
     
     # --- DOWNLOADS ---
     Linhas_Pedidos_por_Tipo = df_Pedido_Final["TIPO"].value_counts().to_dict()
 
-    #Se todas as linhas não foram importados gera erro
     if not Linhas_Pedidos_por_Tipo:
         st.error("ERRO NA IMPORTAÇÃO - Arquivo fora do padrão")
         st.stop()
     else:
         if aplicar_correcao:
-            st.header("Baixar Pedidos Gerados - :red[Correção Automática]")
+            st.header(f":blue[{loja_pedido}] - Baixar Pedidos Gerados - :red[Correção Automática]")
         else:
-            st.header("Baixar Pedidos Gerados")
-        c1, c2, c3 = st.columns(3)
-        tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
-        
-        for tipo, col in tipos:
-            df_sub = df_Pedido_Final[df_Pedido_Final["TIPO"] == tipo][["Codigo", "VALOR_STR"]]
-            with col:
-                if not df_sub.empty:
-                    st.success(f"[{len(df_sub)}] Pedido {tipo} pronto!")
-                    # Gera o CSV em memória para download 
-                    output = io.StringIO()
-                    df_sub.to_csv(output, sep="\t", index=False, header=False)
-                    
-                    st.download_button(
-                        label=f"📥 Baixar Pedido {tipo}",
-                        data=output.getvalue(),
-                        file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
-                        mime="text/plain"
-                    )
-                    salvar_pedido_supabase(loja_pedido, tipo, output, f_pedido, "PedidosLojas", "TESTE")
-                else:
-                    st.info(f"Sem itens para {tipo}")
+            st.header(f":blue[{loja_pedido}] - Baixar Pedidos Gerados")
+        if st.button ("Gerar Arquivos para Importação", width="stretch"):
+            c1, c2, c3 = st.columns(3)
+            tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
+            
+            for tipo, col in tipos:
+                df_sub = df_Pedido_Final[df_Pedido_Final["TIPO"] == tipo][["Codigo", "VALOR_STR"]]
+                with col:
+                    if not df_sub.empty:
+                        st.success(f"[{len(df_sub)}] Pedido {tipo} pronto!")
+                        # Gera o CSV em memória para download 
+                        output = io.StringIO()
+                        df_sub.to_csv(output, sep="\t", index=False, header=False)
+                        
+                        st.download_button(
+                            label=f":material/Download: Baixar Pedido {tipo}",
+                            data=output.getvalue(),
+                            file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
+                            mime="text/plain"
+                        )
+                        if not st.session_state.get("debugger"):
+                            salvar_pedido_supabase(loja_pedido, tipo, output, f_pedido, "PedidosLojas", "TESTE")
+                    else:
+                        st.info(f"Sem itens para {tipo}")
 
 #todos arquivos bd enviados menos o pedido
 elif f_produto and f_extra and not f_pedido:
