@@ -1,4 +1,3 @@
 #ignorar config streamlit
 
 .streamlit/secrets.toml
-pages/Dashboard.py

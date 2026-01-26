@@ -151,8 +151,6 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
         df_preco = df_preco[df_preco["Tabela"] == "PRATI"]
         df_completo = df_merge.merge(df_preco[["CodProduto", "Preco"]], on="CodProduto", how="left")
 
-
-
         #Cria coluna de fornecedores
         padrao = "|".join(FORNECEDORES)
         df_completo["Fornecedor"] = df_completo["Descricao"].str.extract(f"({padrao})", flags=re.IGNORECASE, expand=False)
@@ -162,8 +160,6 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
         df_completo.loc[df_completo["CodGrupo"].isin([9]), "TIPO"] = "CONG"
         df_completo.loc[df_completo["CodGrupo"].isin([14]), "TIPO"] = "REFR"
         df_completo.loc[df_completo["ListaCodCaract"].astype(str).str.contains("000002"), "TIPO"] = "PESO"
-        
-
 
         #   2. FILTRO DATAFRAME
         #filtro negativo
@@ -178,7 +174,6 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
         if ind_qtmin:
             df_completo = df_completo[df_completo["Estoq"] > ind_qtmin]
 
-        
         #   --- MOSTRAR INFORMAÇÕES
         if df_completo.empty:
             st.error(":material/Cancel: Nenhum item selecionado")
@@ -217,7 +212,6 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
             st.write(f":material/List: Total Itens na lista: :blue[{len(df_removido)} itens]")
  
         status.update(label="Processamento concluído!", state="complete")
-
     
     st.markdown("## :material/Sell: Lista Atacado:")
     if df_removido.empty:
@@ -228,43 +222,6 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
         hide_index=True,
         
     )
-    if False:
-        coluna1, coluna2, coluna3, coluna4 = st.columns(4)
-        tipos = [("SECO", coluna1), ("CONG", coluna2), ("REFR", coluna3), ("PESO", coluna4)]
-
-        for tipo, col in tipos:
-            # Filtrar o DF pelo tipo
-            df_filtrado = df_removido[df_removido["TIPO"] == tipo]
-            
-            # Só exibe se houver dados para aquele tipo
-            with col:
-                if not df_filtrado.empty:
-                    with st.expander(f":material/Copy_All: {len(df_filtrado)} itens: {tipo}", expanded=True):
-                        
-                        # Criar a string formatada (um item por linha)
-                        if tipo == "CONG":
-                            dfList = df_filtrado["Descricao"].astype(str).tolist()
-                            dfList.insert(0,"CONGELADO")
-                            texto_formatado = "\n".join(dfList)
-                        elif tipo == "REFR":
-                            dfList = df_filtrado["Descricao"].astype(str).tolist()
-                            dfList.insert(0,"REFRIGERADO")
-                            texto_formatado = "\n".join(dfList)
-                        elif tipo == "SECO":
-                            dfList = df_filtrado["Descricao"].astype(str).tolist()
-                            dfList.insert(0,"SECO")
-                            texto_formatado = "\n".join(dfList)
-                        else:
-                            dfList = df_filtrado["Descricao"].astype(str).tolist()
-                            dfList.insert(0,"PESÁVEIS")
-                            texto_formatado = "\n".join(dfList)
-
-                        #texto_formatado = "\n".join(df_filtrado["Descricao"].astype(str).tolist())
-                        # O usuário clica no ícone que aparece no canto superior direito do quadro
-                        st.code(texto_formatado, language=None)
-                        st.caption(f"Clique no ícone no canto superior direito do quadro acima para copiar os itens de {tipo}.")
-                else:
-                    st.info(f":material/Cancel: {tipo} Sem itens")
 
 else:
     st.info("Insira _'00001produto.txt'_ e _'00001produtoextra.txt'_ e _'00001produtotabela.txt'_ para começar a edição")
