@@ -73,16 +73,21 @@ with col1:
         st.switch_page("pages/1Altera_ERP.py")
     if st.button("Lista"):
         st.switch_page("pages/2Lista.py")
+    if st.button("Atacado"):
+        st.switch_page("pages/3Atacado.py")
     if st.button("Pedidos"):
-        st.switch_page("pages/3Pedidos.py")
+        st.switch_page("pages/4Pedidos.py")
+    if st.button("Calcula_NF"):
+        st.switch_page("pages/5Calcula_NF.py")
     if st.button("Previa Financeira"):
-        st.switch_page("pages/4Previa_Financeira.py")
+        st.switch_page("pages/6Previa_Financeira.py")
 with col2:
     st.markdown("## :orange[:material/Upgrade:] Em Progresso")
     st.write(":orange-badge[:material/Lab_Profile: Previa Financeira]")
     st.write(":orange-badge[:material/Lab_Profile: Pedido]")
+    st.write(":orange-badge[:material/Lab_Profile: Atacado]")
+    st.write(":orange-badge[:material/Lab_Profile: Calula NF]")
 
-    st.write(":red-badge[:material/code: Atacado]")
     st.write(":red-badge[:material/code: Troca]")
     st.write(":red-badge[:material/code: Divisão]")
     st.write(":red-badge[:material/code: Login]")
