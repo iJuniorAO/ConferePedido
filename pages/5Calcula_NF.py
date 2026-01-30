@@ -164,7 +164,7 @@ if uploaded_file:
     if total_nf==soma_itens:
         st.success(":material/Check: Sem Calculo de ST")
     elif total_nf==df["Valor Total"].sum():
-        st.sucess(":material/Check: Possui Calculo de ST")
+        st.success(":material/Check: Possui Calculo de ST")
     else:
         st.error(":material/Close: Nâo foi possível calcular impostos")
 
