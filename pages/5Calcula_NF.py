@@ -50,6 +50,10 @@ def processa_XML(xml_file):
                 valor_IPI = 0
         else:
             valor_IPI=0
+        if "vDesc" in item["prod"]:
+            v_desc = float(item["prod"]["vDesc"])
+        else:
+            v_desc=0
 
         soma_produtos += valor_produto
         
@@ -69,81 +73,114 @@ def processa_XML(xml_file):
             "CST": cst,
             "CEST": cod_CEST,
             "V_ST": v_st,
-            "V_IPI": valor_IPI
+            "V_IPI": valor_IPI,
+            "Valor Desconto": v_desc
         })
-
+    soma_produtos = round(soma_produtos,2)
     return pd.DataFrame(lista_produtos), total_nf_xml, soma_produtos, emitente_nome, emitente_fantasia, nr_Nfe
 def extrair_inteiro_unidade(texto_unidade):
     numeros = re.findall(r'\d+', str(texto_unidade))
     if numeros:
         return int("".join(numeros))
     return 1 # Retorna 1 se for apenas 'un' ou 'cx' sem número
-def input_fator_conversao(df):
-    fator_conversao = df[["Descrição"]].copy()
-    fator_conversao["Fator de Conversão"] = 0
-    fator_conversao = st.data_editor(
-        fator_conversao,
-        width="stretch",
-        hide_index=True,
-        num_rows="dynamic"
-    )
-    if 0 in fator_conversao.values:
-        st.error("Não pode haver fator de conversão 'Zero', caso não tenha mude para '1'")
-        st.stop()
-    if len(df) != len(fator_conversao):
-        st.error("Qt de conversões precisa ser igual a quantidade de itens na NF")
-        st.stop()
-    fator_conversao = fator_conversao["Fator de Conversão"]
-    return fator_conversao
+def solicita_input(df, tipo):
+    if tipo=="fator_conversão":
+        fator_conversao = df[["Descrição", "CST", "CEST"]].copy()
+        fator_conversao["Fator de Conversão"] = 0
+        fator_conversao = st.data_editor(
+            fator_conversao,
+            width="stretch",
+            hide_index=True,
+            num_rows="dynamic"
+        )
+        if 0 in fator_conversao.values:
+            st.error("Não pode haver fator de conversão 'Zero', caso não tenha mude para '1'")
+            st.stop()
+        if len(df) != len(fator_conversao):
+            st.error("Qt de conversões precisa ser igual a quantidade de itens na NF")
+            st.stop()
+        fator_conversao = fator_conversao["Fator de Conversão"]
+        return fator_conversao
+    elif tipo=="guia_ST":
+        guia_ST = df[["Descrição"]].copy()
+        guia_ST["Valor Guia ST"] = 0.0
+        guia_ST = st.data_editor(
+            guia_ST,
+            width="stretch",
+            hide_index=True,
+            num_rows="dynamic"
+        )
+
+        if 0 in guia_ST.values:
+            st.error("Guia ST está zerada!")
+            st.stop()
+        if len(df) != len(guia_ST):
+            st.error("Qt de conversões precisa ser igual a quantidade de itens na NF")
+            st.stop()
+        return guia_ST
 
 def calcula_df(df, vl_total_nf):
-    st.info("No campo :red[*Fator de Conversão*] Informar quantas unidades vem na caixa (somente números)")
-    if "un" in df["Ucom"].values:
-        
-        fator_conversao = input_fator_conversao(df)
+    escolha_conversão_user = None
+    if not df["Ucom"].isin(["cx", "un"]).any():
+        st.error("Não foi encontrado fator de conversão")
+        if "kg" in df["Ucom"].values:
+            st.warning("Fator de Conversão é KG")
+        escolha_conversão_user = st.segmented_control(
+            "Informar Unidade de Compra",
+            ["CX/FD", "UN"],
+            default="UN",
+            width="stretch"
+        )
+    st.divider()
+    st.caption("Informar :red[*Fator de Conversão*] (somente números)")
+    if "un" in df["Ucom"].values or escolha_conversão_user=="UN":
+        fator_conversao = solicita_input(df, "fator_conversão")
         df["Qt un"] = df["qt_Com"]
         df["Qt Cx"] = df["Qt un"] / fator_conversao
-    elif "cx" in df["Ucom"].values:
-        fator_conversao = input_fator_conversao(df)
-        df["Qt Cx"] = df["qt_Com"]
-        df["Qt un"] = df["Qt Cx"] * fator_conversao
-    elif "kg" in df["Ucom"].values:
-        #Faz o mesmo que o anterior, melhoria para utilizaro extrair_inteiro_unidade antes de retornar o fator_conversao
-        st.warning("Fator de Conversão é KG")
-        fator_conversao = input_fator_conversao(df)
+    elif "cx" in df["Ucom"].values or escolha_conversão_user=="CX/FD":
+        fator_conversao = solicita_input(df, "fator_conversão")
         df["Qt Cx"] = df["qt_Com"]
         df["Qt un"] = df["Qt Cx"] * fator_conversao
     else:
-        #Faz o mesmo que o anterior, melhoria para utilizaro extrair_inteiro_unidade antes de retornar o fator_conversao
-        st.error("erro não foi possível identificar Unidade de Compra")
-        fator_conversao = input_fator_conversao(df)
-        df["Qt Cx"] = df["qt_Com"]
-        df["Qt un"] = df["Qt Cx"] * fator_conversao
+        st.error("Erro4")
+        st.stop()
+    if df["CST"].isin(["00","20"]).any():
+        if not df["CEST"].isin([""]).any():
+        #if df["CEST"].values != "":
+            st.divider()
+            df[["Descrição","CEST"]]
 
-    if df["CST"].isin(["0","20"]).any():
-        if df["CEST"].values != "":
-            st.error(f"Contactar Contabilidade Nfe possui itens com CEST {df["CEST"].values}")
             if st.toggle("Já possuo retorno da contabilidade"):
-                "erro2"
-                st.stop()
+                st.markdown("### Informe Calculo ST :blue[Contabilidade]")
+                guia_st = solicita_input(df, "guia_ST")
+                df = df.merge(guia_st)
+                df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] - df["Valor Desconto"]
+                df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
+                df["Valor un"] = df["Valor Total"] / df["Qt un"]
+
+                total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()+df["Valor Guia ST"].sum()-df["Valor Desconto"].sum()
+                total_Valor_Total = round(df["Valor Total"].sum(),2)
+                return df, total_impostos, total_Valor_Total
             else:
-                "erro3"
+                st.error(f"Contactar Contabilidade Nfe possui itens com CEST")
+
                 st.stop()
 
     if not vl_total_nf == df["Valor Original"].sum():
-        df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"]
+        df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] - df["Valor Desconto"]
         df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
         df["Valor un"] = df["Valor Total"] / df["Qt un"]
 
-        total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()
-
+        total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()-df["Valor Desconto"].sum()
     else:
         df["Valor Total"] = df["Valor Original"]
         df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
         df["Valor un"] = df["Valor Total"] / df["Qt un"]
         total_impostos=0
 
-    return df, total_impostos
+    total_Valor_Total = round(df["Valor Total"].sum(),2)
+
+    return df, total_impostos, total_Valor_Total
 
 # --- Interface Streamlit ---
 st.set_page_config(page_title="Calculo NFe", layout="wide")
@@ -156,29 +193,49 @@ uploaded_file = st.file_uploader("Arraste o XML da nota fiscal aqui", type="xml"
 if uploaded_file:
     df, total_nf, soma_itens, emitente_nome, emitente_fantasia, Nr_Nfe = processa_XML(uploaded_file)
 
-    df_calculado, imposto_somado = calcula_df(df, total_nf)
+    df_calculado, imposto_somado, Valor_Total_Somado = calcula_df(df, total_nf)
 
     st.divider()
     st.markdown("## Informações Gerais")
 
-    if total_nf==soma_itens:
+    
+    if "Valor Guia ST" in df_calculado.columns:
+        st.warning(":material/Check: Calculo com base no ST (Contabilidade)")
+    elif total_nf==soma_itens:
         st.success(":material/Check: Sem Calculo de ST")
-    elif total_nf==df["Valor Total"].sum():
+    elif total_nf==Valor_Total_Somado:
         st.success(":material/Check: Possui Calculo de ST")
     else:
-        st.error(":material/Close: Nâo foi possível calcular impostos")
+        st.error(":material/Close: Não foi possível calcular impostos")
 
     st.markdown(f"### Emitente: :blue[{emitente_fantasia}] - {emitente_nome}")
     st.markdown(f"#### Nº NFe: :blue[{Nr_Nfe}]")
 
-    if not df["CST"].isin(["20", "60", "70"]).any():
-        st.error(":material/Close: Encontrado Registro com CST diferente de 20, 60 ou 70!")
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total da Nota (XML)", f"R$ {total_nf:,.2f}")
-    col2.metric("Soma dos Produtos", f"R$ {soma_itens:,.2f}",delta=f"{soma_itens-total_nf:.2f}")
-    col3.metric("Imposto Somado", f"R$ {imposto_somado:,.2f}")
-
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(
+            "Valor Total da Nota",
+            f"R$ {total_nf:,.2f}".replace(",","x").replace(".",",").replace("x",".")
+        )
+        st.space()
+        st.metric(
+            "Valor Total dos Produtos",
+            f"R$ {soma_itens:,.2f}".replace(",","x").replace(".",",").replace("x","."),
+            delta=f"{soma_itens-total_nf:,.2f}".replace(",","x").replace(".",",").replace("x","."),
+        )
+    with col2:
+        st.metric(
+            "Valor Total Calculado",
+            f"R$ {Valor_Total_Somado:,.2f}".replace(",","x").replace(".",",").replace("x","."),
+        )
+        st.space()
+        if imposto_somado>0:
+            st.metric("Imposto Somado", f"R$ {imposto_somado:,.2f}")
+        else:
+            st.metric(
+                "Desconto Concedido",
+                f"R$ {abs(imposto_somado):,.2f}".replace(",","x").replace(".",",").replace("x",".")
+            )
     st.divider()
     st.markdown("## :material/Post: Relatório para Compras")
 
