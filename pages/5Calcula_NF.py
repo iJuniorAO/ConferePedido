@@ -54,12 +54,14 @@ def processa_XML(xml_file):
             v_desc=0
 
         soma_produtos += valor_produto
+            
+        
         
         #   OTIMIZAR
         icms_info = imposto['ICMS']
         tipo_icms = list(icms_info.keys())[0] # Ex: 'ICMS60'
         cst = icms_info[tipo_icms].get('CST', icms_info[tipo_icms].get('orig', ''))
-        v_st = float(icms_info[tipo_icms].get('vICMSST', ""))        
+        v_st = float(icms_info[tipo_icms].get('vICMSST', 0))        
         v_FCPST = float(icms_info[tipo_icms].get("vFCPST",0))
 
         lista_produtos.append({
