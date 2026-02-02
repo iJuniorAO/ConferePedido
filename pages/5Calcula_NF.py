@@ -3,8 +3,7 @@ import xmltodict
 import re
 import pandas as pd
 
-#       pegar nr nf
-#       pegar fornecedor
+#   Input do número do XML e buscar no site da fazenda para calculo
 
 def processa_XML(xml_file):
     # Transforma o XML em um dicionário Python
@@ -31,7 +30,6 @@ def processa_XML(xml_file):
     soma_produtos = 0
 
     for id, item in enumerate(detalhes):
-
         cod_produto = item["prod"]["cProd"]
         imposto = item['imposto']
         Item = detalhes[id]["@nItem"]
@@ -61,8 +59,9 @@ def processa_XML(xml_file):
         icms_info = imposto['ICMS']
         tipo_icms = list(icms_info.keys())[0] # Ex: 'ICMS60'
         cst = icms_info[tipo_icms].get('CST', icms_info[tipo_icms].get('orig', ''))
-        v_st = float(icms_info[tipo_icms].get('vICMSST', 0))
-        
+        v_st = float(icms_info[tipo_icms].get('vICMSST', ""))        
+        v_FCPST = float(icms_info[tipo_icms].get("vFCPST",0))
+
         lista_produtos.append({
             "Item": Item,
             "Codigo Fornecedor": cod_produto,
@@ -74,6 +73,7 @@ def processa_XML(xml_file):
             "CEST": cod_CEST,
             "V_ST": v_st,
             "V_IPI": valor_IPI,
+            "V_FCPST": v_FCPST,
             "Valor Desconto": v_desc
         })
     soma_produtos = round(soma_produtos,2)
@@ -121,7 +121,7 @@ def solicita_input(df, tipo):
 
 def calcula_df(df, vl_total_nf):
     escolha_conversão_user = None
-    if not df["Ucom"].isin(["cx", "un"]).any():
+    if not df["Ucom"].isin(["cx", "un"]).all():
         st.error("Não foi encontrado fator de conversão")
         if "kg" in df["Ucom"].values:
             st.warning("Fator de Conversão é KG")
@@ -154,7 +154,7 @@ def calcula_df(df, vl_total_nf):
                 st.markdown("### Informe Calculo ST :blue[Contabilidade]")
                 guia_st = solicita_input(df, "guia_ST")
                 df = df.merge(guia_st)
-                df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] - df["Valor Desconto"]
+                df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["V_FCPST"] - df["Valor Desconto"]
                 df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
                 df["Valor un"] = df["Valor Total"] / df["Qt un"]
 
@@ -167,7 +167,7 @@ def calcula_df(df, vl_total_nf):
                 st.stop()
 
     if not vl_total_nf == df["Valor Original"].sum():
-        df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] - df["Valor Desconto"]
+        df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["V_FCPST"] - df["Valor Desconto"]
         df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
         df["Valor un"] = df["Valor Total"] / df["Qt un"]
 
@@ -227,6 +227,7 @@ if uploaded_file:
         st.metric(
             "Valor Total Calculado",
             f"R$ {Valor_Total_Somado:,.2f}".replace(",","x").replace(".",",").replace("x","."),
+            delta=Valor_Total_Somado-total_nf
         )
         st.space()
         if imposto_somado>0:
@@ -236,6 +237,7 @@ if uploaded_file:
                 "Desconto Concedido",
                 f"R$ {abs(imposto_somado):,.2f}".replace(",","x").replace(".",",").replace("x",".")
             )
+
     st.divider()
     st.markdown("## :material/Post: Relatório para Compras")
 
