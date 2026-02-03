@@ -37,10 +37,15 @@ def processa_XML(xml_file):
         qt_Com = float(item['prod']['qCom'])
         Ucom = item['prod']['uCom'].lower()
         valor_produto = float(item['prod']['vProd'])
-        if "CEST" in item["prod"]:
-            cod_CEST = item["prod"]["CEST"]
-        else:
-            cod_CEST=""
+        
+        
+        cod_CEST = item["prod"].get("CEST","")
+        if False:
+            if "CEST" in item["prod"]:
+                cod_CEST = item["prod"]["CEST"]
+            else:
+                cod_CEST=""
+        
         if "IPI" in item["imposto"]:
             if "IPITrib" in item["imposto"]["IPI"]:
                 valor_IPI = float(item["imposto"]["IPI"]["IPITrib"]["vIPI"])
@@ -48,16 +53,16 @@ def processa_XML(xml_file):
                 valor_IPI = 0
         else:
             valor_IPI=0
-        if "vDesc" in item["prod"]:
-            v_desc = float(item["prod"]["vDesc"])
-        else:
-            v_desc=0
+
+        v_desc = float(item["prod"].get("vDesc",0))
+        if False:
+            if "vDesc" in item["prod"]:
+                v_desc = float(item["prod"]["vDesc"])
+            else:
+                v_desc=0
 
         soma_produtos += valor_produto
-            
-        
-        
-        #   OTIMIZAR
+                
         icms_info = imposto['ICMS']
         tipo_icms = list(icms_info.keys())[0] # Ex: 'ICMS60'
         cst = icms_info[tipo_icms].get('CST', icms_info[tipo_icms].get('orig', ''))
@@ -134,6 +139,7 @@ def calcula_df(df, vl_total_nf):
             width="stretch"
         )
     st.divider()
+    ignora_impostos = st.toggle("Não considerar impostos")
     st.caption("Informar :red[*Fator de Conversão*] (somente números)")
     if "un" in df["Ucom"].values or escolha_conversão_user=="UN":
         fator_conversao = solicita_input(df, "fator_conversão")
@@ -146,7 +152,7 @@ def calcula_df(df, vl_total_nf):
     else:
         st.error("Erro4")
         st.stop()
-    if df["CST"].isin(["00","20"]).any():
+    if df["CST"].isin(["00","20"]).any() and not ignora_impostos:
         if not df["CEST"].isin([""]).any():
         #if df["CEST"].values != "":
             st.divider()
@@ -168,7 +174,7 @@ def calcula_df(df, vl_total_nf):
 
                 st.stop()
 
-    if not vl_total_nf == df["Valor Original"].sum():
+    if not vl_total_nf == df["Valor Original"].sum() and not ignora_impostos:
         df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["V_FCPST"] - df["Valor Desconto"]
         df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
         df["Valor un"] = df["Valor Total"] / df["Qt un"]
@@ -258,7 +264,17 @@ if uploaded_file:
     st.divider()
     st.markdown("## :material/Package: Logística: Conferência Cega")
     st.markdown(f"#### Emitente: :blue[{emitente_fantasia}] - {emitente_nome}")
+
+    colun1, colun2, colun3 = st.columns(3)
+    with colun1:
+        st.markdown(f":material/Check_Box_Outline_Blank: Descarga Normal")
+    with colun2:
+        st.markdown(f":material/Check_Box_Outline_Blank: Descarga Isenta")
+    with colun3:
+        st.markdown(f":________________")
+
     df_log = df_calculado[["Codigo Fornecedor",'Descrição']].copy()
+    st.markdown(f"#### Produtos:")
     df_log.index=df_calculado["Item"]
     df_log['Qtd Contada'] = ""
     df_log['Data Validade'] = ""
@@ -266,3 +282,4 @@ if uploaded_file:
         df_log,
         border="horizontal",
     )
+    st.divider()
