@@ -8,13 +8,12 @@ import pandas as pd
 def processa_XML(xml_file):
     # Transforma o XML em um dicionário Python
     data = xmltodict.parse(xml_file)
-
+    
     detalhes = data['nfeProc']['NFe']['infNFe']['det']
     if not isinstance(detalhes, list):
         detalhes = [detalhes]
-    
-    emitente_nome = data['nfeProc']['NFe']['infNFe']["emit"]["xNome"]
 
+    emitente_nome = data['nfeProc']['NFe']['infNFe']["emit"]["xNome"]
 
     if "xFant" in data['nfeProc']['NFe']['infNFe']["emit"]:
         emitente_fantasia = data['nfeProc']['NFe']['infNFe']["emit"]["xFant"]
@@ -23,12 +22,15 @@ def processa_XML(xml_file):
 
     nr_Nfe = data['nfeProc']['NFe']['infNFe']["ide"]["nNF"]
       
-        
     total_nf_xml = float(data['nfeProc']['NFe']['infNFe']['total']['ICMSTot']['vNF'])
-    
+
+    if "cobr" in data["nfeProc"]["NFe"]["infNFe"]:
+        Boletos = data["nfeProc"]["NFe"]["infNFe"]["cobr"].get("dup","")
+    else:
+        Boletos=0
+
     lista_produtos = []
     soma_produtos = 0
-
     for id, item in enumerate(detalhes):
         cod_produto = item["prod"]["cProd"]
         imposto = item['imposto']
@@ -38,13 +40,7 @@ def processa_XML(xml_file):
         Ucom = item['prod']['uCom'].lower()
         valor_produto = float(item['prod']['vProd'])
         
-        
         cod_CEST = item["prod"].get("CEST","")
-        if False:
-            if "CEST" in item["prod"]:
-                cod_CEST = item["prod"]["CEST"]
-            else:
-                cod_CEST=""
         
         if "IPI" in item["imposto"]:
             if "IPITrib" in item["imposto"]["IPI"]:
@@ -55,11 +51,6 @@ def processa_XML(xml_file):
             valor_IPI=0
 
         v_desc = float(item["prod"].get("vDesc",0))
-        if False:
-            if "vDesc" in item["prod"]:
-                v_desc = float(item["prod"]["vDesc"])
-            else:
-                v_desc=0
 
         soma_produtos += valor_produto
                 
@@ -84,7 +75,7 @@ def processa_XML(xml_file):
             "Valor Desconto": v_desc
         })
     soma_produtos = round(soma_produtos,2)
-    return pd.DataFrame(lista_produtos), total_nf_xml, soma_produtos, emitente_nome, emitente_fantasia, nr_Nfe
+    return pd.DataFrame(lista_produtos), total_nf_xml, soma_produtos, emitente_nome, emitente_fantasia, nr_Nfe, Boletos
 def extrair_inteiro_unidade(texto_unidade):
     numeros = re.findall(r'\d+', str(texto_unidade))
     if numeros:
@@ -126,7 +117,7 @@ def solicita_input(df, tipo):
             st.stop()
         return guia_ST
 
-def calcula_df(df, vl_total_nf):
+def calculos(df, vl_total_nf,ignora_impostos):
     escolha_conversão_user = None
     if not df["Ucom"].isin(["cx", "un"]).all():
         st.error("Não foi encontrado fator de conversão")
@@ -138,9 +129,9 @@ def calcula_df(df, vl_total_nf):
             default="UN",
             width="stretch"
         )
-    st.divider()
-    ignora_impostos = st.toggle("Não considerar impostos")
+    
     st.caption("Informar :red[*Fator de Conversão*] (somente números)")
+
     if "un" in df["Ucom"].values or escolha_conversão_user=="UN":
         fator_conversao = solicita_input(df, "fator_conversão")
         df["Qt un"] = df["qt_Com"]
@@ -154,7 +145,6 @@ def calcula_df(df, vl_total_nf):
         st.stop()
     if df["CST"].isin(["00","20"]).any() and not ignora_impostos:
         if not df["CEST"].isin([""]).any():
-        #if df["CEST"].values != "":
             st.divider()
             df[["Descrição","CEST"]]
 
@@ -195,17 +185,24 @@ st.set_page_config(page_title="Calculo NFe", layout="wide")
 st.markdown("# :material/Docs: Calculo NF-e de Compras")
 st.divider()
 st.markdown("## :material/Upload: Importação de Arquivo xml")
+calc_bonificacao = st.toggle("Calcular Bonificação")
 
-uploaded_file = st.file_uploader("Arraste o XML da nota fiscal aqui", type="xml")
+c1,c2 = st.columns(2)
+with c1:
+    uploaded_file = st.file_uploader("COMPRA - Arraste o XML da nota fiscal aqui", type="xml")
+with c2:
+    uploaded_file_2 = st.file_uploader("BONIFICAÇÃO - Arraste o XML da nota fiscal aqui", type="xml")
 
 if uploaded_file:
-    df, total_nf, soma_itens, emitente_nome, emitente_fantasia, Nr_Nfe = processa_XML(uploaded_file)
+    df, total_nf, soma_itens, emitente_nome, emitente_fantasia, Nr_Nfe, Boletos = processa_XML(uploaded_file)
+    st.divider()
 
-    df_calculado, imposto_somado, Valor_Total_Somado = calcula_df(df, total_nf)
+    ignora_impostos = st.toggle("Não considerar impostos")
+
+    df_calculado, imposto_somado, Valor_Total_Somado = calculos(df, total_nf, ignora_impostos)
 
     st.divider()
-    st.markdown("## Informações Gerais")
-
+    st.markdown("## :material/Desktop_Mac: Informações Gerais")
     
     if "Valor Guia ST" in df_calculado.columns:
         st.warning(":material/Check: Calculo com base no ST (Contabilidade)")
@@ -247,6 +244,45 @@ if uploaded_file:
             )
 
     st.divider()
+    st.markdown(f"## :material/Payments: Boletos")
+
+
+
+    if Boletos:
+        if isinstance(Boletos,list):
+            qt_Boleto = len(Boletos)
+            vl_total_boleto = sum(float(boleto["vDup"]) for boleto in Boletos)
+        else:
+            qt_Boleto=1
+            vl_total_boleto = float(Boletos["vDup"])
+
+    
+        st.markdown(f"### Boletos Emitidos: {qt_Boleto}")
+        if Valor_Total_Somado==vl_total_boleto:
+            st.markdown(f"### Valor Total :green[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+        else:
+            st.error("Boleto com valor divergente da Nfe")
+            st.markdown(f"### Valor Total :red[R$ {vl_total_boleto}]")
+        cols = st.columns(qt_Boleto)
+
+        if qt_Boleto==1:
+            with st.container(border=True):
+                    st.markdown(f"Boleto: {Boletos["nDup"]}")
+                    st.markdown(f"Valor: {float(Boletos["vDup"]):,.2f}".replace(".","x").replace(",",".").replace("x",","))
+                    st.markdown(f"Vencimento: {Boletos["dVenc"]}")
+        else:
+            for i, boleto in enumerate(Boletos):
+                with cols[i]:
+                    with st.container(border=True):
+                        st.markdown(f"Boleto: {boleto["nDup"]}")
+                        st.markdown(f"Valor: {float(boleto["vDup"]):,.2f}".replace(".","x").replace(",",".").replace("x",","))
+                        st.markdown(f"Vencimento: {boleto["dVenc"]}")
+        st.divider()
+    else:
+        st.error("Não foi possível encontrar Boleto na NFe")
+        st.divider()
+
+
     st.markdown("## :material/Post: Relatório para Compras")
 
     df_dir = df_calculado[['Item', 'Descrição', 'Qt Cx', 'Valor Total', 'Valor un']]
@@ -264,14 +300,19 @@ if uploaded_file:
     st.divider()
     st.markdown("## :material/Package: Logística: Conferência Cega")
     st.markdown(f"#### Emitente: :blue[{emitente_fantasia}] - {emitente_nome}")
+    coluna1, coluna2 = st.columns([3,1])
+    with coluna1:
+        colun1, colun2, colun3 = st.columns(3)
+        with colun1:
+            st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
+        with colun2:
+            st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
+        with colun3:
+            st.markdown(":material/Check_Box_Outline_Blank:________________")
+    with coluna2:
+        st.markdown(":material/Check_Box_Outline_Blank: Lista/Divisão: ________________")
+        st.markdown(":material/Check_Box_Outline_Blank: Precificação: ________________")
 
-    colun1, colun2, colun3 = st.columns(3)
-    with colun1:
-        st.markdown(f":material/Check_Box_Outline_Blank: Descarga Normal")
-    with colun2:
-        st.markdown(f":material/Check_Box_Outline_Blank: Descarga Isenta")
-    with colun3:
-        st.markdown(f":________________")
 
     df_log = df_calculado[["Codigo Fornecedor",'Descrição']].copy()
     st.markdown(f"#### Produtos:")
