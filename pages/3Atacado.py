@@ -218,7 +218,7 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
         st.markdown(f"### :red[:material/Close: Nenhum item na lista]")
         st.stop()
     st.dataframe(
-        df_removido[["CodProduto", "Descricao", "R$/Un", "R$ Venda", "Fornecedor"]].sort_values("Fornecedor"),
+        df_removido[["CodProduto", "Descricao", "R$/Un", "R$ Venda", "Fornecedor","Estoq"]].sort_values("Fornecedor"),
         hide_index=True,
         
     )
