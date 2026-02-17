@@ -2,6 +2,7 @@ import streamlit as st
 import xmltodict
 import re
 import pandas as pd
+from datetime import datetime
 
 #   Input do número do XML e buscar no site da fazenda para calculo
 
@@ -67,7 +68,7 @@ def processa_XML(xml_file):
             "Ucom": Ucom,
             "qt_Com": qt_Com,
             "Valor Original": valor_produto,
-            "CST": cst,
+            "ICMS_CST": cst,
             "CEST": cod_CEST,
             "V_ST": v_st,
             "V_IPI": valor_IPI,
@@ -83,19 +84,15 @@ def extrair_inteiro_unidade(texto_unidade):
     return 1 # Retorna 1 se for apenas 'un' ou 'cx' sem número
 def solicita_input(df, tipo):
     if tipo=="fator_conversão":
-        fator_conversao = df[["Descrição", "CST", "CEST"]].copy()
+        fator_conversao = df[["Descrição", "ICMS_CST", "CEST"]].copy()
         fator_conversao["Fator de Conversão"] = 0
         fator_conversao = st.data_editor(
             fator_conversao,
             width="stretch",
             hide_index=True,
-            num_rows="dynamic"
         )
         if 0 in fator_conversao.values:
             st.error("Não pode haver fator de conversão 'Zero', caso não tenha mude para '1'")
-            st.stop()
-        if len(df) != len(fator_conversao):
-            st.error("Qt de conversões precisa ser igual a quantidade de itens na NF")
             st.stop()
         fator_conversao = fator_conversao["Fator de Conversão"]
         return fator_conversao
@@ -106,14 +103,9 @@ def solicita_input(df, tipo):
             guia_ST,
             width="stretch",
             hide_index=True,
-            num_rows="dynamic"
         )
-
         if 0 in guia_ST.values:
             st.error("Guia ST está zerada!")
-            st.stop()
-        if len(df) != len(guia_ST):
-            st.error("Qt de conversões precisa ser igual a quantidade de itens na NF")
             st.stop()
         return guia_ST
 
@@ -143,26 +135,27 @@ def calculos(df, vl_total_nf,ignora_impostos):
     else:
         st.error("Erro4")
         st.stop()
-    if df["CST"].isin(["00","20"]).any() and not ignora_impostos:
-        if not df["CEST"].isin([""]).any():
-            st.divider()
-            df[["Descrição","CEST"]]
 
-            if st.toggle("Já possuo retorno da contabilidade"):
-                st.markdown("### Informe Calculo ST :blue[Contabilidade]")
-                guia_st = solicita_input(df, "guia_ST")
-                df = df.merge(guia_st)
-                df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["V_FCPST"] - df["Valor Desconto"]
-                df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
-                df["Valor un"] = df["Valor Total"] / df["Qt un"]
+    linhas_com_guia = df[df["ICMS_CST"].isin(["00", "20"]) & (df["CEST"] != "")]
+    if not linhas_com_guia.empty and not ignora_impostos:
+        st.divider()
+        #linhas_com_guia[["Descrição","CEST"]]
+    
+        if st.toggle("Já possuo retorno da contabilidade"):
+            st.markdown("### Informe Calculo ST :blue[Contabilidade]")
+            guia_st = solicita_input(linhas_com_guia, "guia_ST")
+            df = df.merge(guia_st,how="left")
+            df["Valor Guia ST"] = df["Valor Guia ST"].fillna(0)
+            df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["V_FCPST"] - df["Valor Desconto"]
+            df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
+            df["Valor un"] = df["Valor Total"] / df["Qt un"]
 
-                total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()+df["Valor Guia ST"].sum()-df["Valor Desconto"].sum()
-                total_Valor_Total = round(df["Valor Total"].sum(),2)
-                return df, total_impostos, total_Valor_Total
-            else:
-                st.error(f"Contactar Contabilidade Nfe possui itens com CEST")
-
-                st.stop()
+            total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()+df["Valor Guia ST"].sum()-df["Valor Desconto"].sum()
+            total_Valor_Total = round(df["Valor Total"].sum(),2)
+            return df, total_impostos, total_Valor_Total
+        else:
+            st.error(f"Contactar Contabilidade Nfe possui itens com CEST")
+            st.stop()
 
     if not vl_total_nf == df["Valor Original"].sum() and not ignora_impostos:
         df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["V_FCPST"] - df["Valor Desconto"]
@@ -226,7 +219,6 @@ if uploaded_file:
         st.metric(
             "Valor Total dos Produtos",
             f"R$ {soma_itens:,.2f}".replace(",","x").replace(".",",").replace("x","."),
-            delta=f"{soma_itens-total_nf:,.2f}".replace(",","x").replace(".",",").replace("x","."),
         )
     with col2:
         st.metric(
@@ -245,8 +237,6 @@ if uploaded_file:
 
     st.divider()
     st.markdown(f"## :material/Payments: Boletos")
-
-
 
     if Boletos:
         if isinstance(Boletos,list):
@@ -272,14 +262,21 @@ if uploaded_file:
                     st.markdown(f"Vencimento: {Boletos["dVenc"]}")
         else:
             for i, boleto in enumerate(Boletos):
+                Vencimento_Boleto = datetime.strptime(boleto["dVenc"],"%Y-%m-%d")
                 with cols[i]:
                     with st.container(border=True):
                         st.markdown(f"Boleto: {boleto["nDup"]}")
                         st.markdown(f"Valor: {float(boleto["vDup"]):,.2f}".replace(".","x").replace(",",".").replace("x",","))
-                        st.markdown(f"Vencimento: {boleto["dVenc"]}")
+                        if Vencimento_Boleto>datetime.now():
+                            st.markdown(f"Vencimento: {boleto["dVenc"]}")
+                        else:                            
+                            st.markdown(f":red[:material/Close: Vencimento: {boleto["dVenc"]}]")
+
         st.divider()
     else:
         st.error("Não foi possível encontrar Boleto na NFe")
+        st.markdown(":material/Close: Não recebemos NF sem Boleto - Solicitar ao Motorista")
+        st.markdown("Após receber Boleto verificar vencimento")
         st.divider()
 
 
@@ -302,13 +299,15 @@ if uploaded_file:
     st.markdown(f"#### Emitente: :blue[{emitente_fantasia}] - {emitente_nome}")
     coluna1, coluna2 = st.columns([3,1])
     with coluna1:
-        colun1, colun2, colun3 = st.columns(3)
+        colun1, colun2, colun3, colun4 = st.columns(4)
         with colun1:
             st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
         with colun2:
             st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
         with colun3:
-            st.markdown(":material/Check_Box_Outline_Blank:________________")
+            st.markdown(":____________________________")
+        with colun4:
+            st.markdown(":________________Volumes")
     with coluna2:
         st.markdown(":material/Check_Box_Outline_Blank: Lista/Divisão: ________________")
         st.markdown(":material/Check_Box_Outline_Blank: Precificação: ________________")
