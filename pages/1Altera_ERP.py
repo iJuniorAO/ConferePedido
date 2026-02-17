@@ -102,7 +102,7 @@ def encontra_melhor_match(descricao_erro, escolhas_base, threshold=60):
     if match and match[1] >= threshold:
         return pd.Series([match[0], match[1]], index=['Descricao_Sugerida', 'Score_Similaridade'])
     return pd.Series([None, 0], index=['Descricao_Sugerida', 'Score_Similaridade'])
-@st.cache_data
+@st.cache_data(ttl=7200, show_spinner=True)
 def carregar_dados_onedrive(input_texto):
     try:
         # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
@@ -131,7 +131,7 @@ def carregar_dados_onedrive(input_texto):
     except Exception as e:
         st.error(f"Erro ao processar URL: {e}")
         return None
-@st.cache_data
+@st.cache_data(ttl=86400, show_spinner=True)
 def carregar_lojas_supabase():
     try:
         resposta = supabase.table("Lojas").select("Filial").order("Filial").execute()
