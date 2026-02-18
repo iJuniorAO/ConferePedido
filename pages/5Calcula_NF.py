@@ -2,9 +2,10 @@ import streamlit as st
 import xmltodict
 import re
 import pandas as pd
-from datetime import datetime
+from datetime import datetime,timedelta
 
 #   Input do número do XML e buscar no site da fazenda para calculo
+#   Testar Calculo de Bonificação se está OK, somente testado com guia
 
 def processa_XML(xml_file):
     # Transforma o XML em um dicionário Python
@@ -25,10 +26,18 @@ def processa_XML(xml_file):
       
     total_nf_xml = float(data['nfeProc']['NFe']['infNFe']['total']['ICMSTot']['vNF'])
 
+
     if "cobr" in data["nfeProc"]["NFe"]["infNFe"]:
-        Boletos = data["nfeProc"]["NFe"]["infNFe"]["cobr"].get("dup","")
+        Boletos = data["nfeProc"]["NFe"]["infNFe"]["cobr"].get("dup",0)
     else:
         Boletos=0
+    pgto = data["nfeProc"]["NFe"]["infNFe"].get("pag",0)
+
+    if False:
+        if "cobr" in data["nfeProc"]["NFe"]["infNFe"]:
+            Boletos = data["nfeProc"]["NFe"]["infNFe"]["cobr"].get("dup","")
+        else:
+            Boletos=0
 
     lista_produtos = []
     soma_produtos = 0
@@ -76,7 +85,7 @@ def processa_XML(xml_file):
             "Valor Desconto": v_desc
         })
     soma_produtos = round(soma_produtos,2)
-    return pd.DataFrame(lista_produtos), total_nf_xml, soma_produtos, emitente_nome, emitente_fantasia, nr_Nfe, Boletos
+    return pd.DataFrame(lista_produtos), total_nf_xml, soma_produtos, emitente_nome, emitente_fantasia, nr_Nfe, Boletos, pgto
 def extrair_inteiro_unidade(texto_unidade):
     numeros = re.findall(r'\d+', str(texto_unidade))
     if numeros:
@@ -108,8 +117,7 @@ def solicita_input(df, tipo):
             st.error("Guia ST está zerada!")
             st.stop()
         return guia_ST
-
-def calculos(df, vl_total_nf,ignora_impostos):
+def calculos(df, vl_total_nf,ignora_impostos,df_bon=""):
     escolha_conversão_user = None
     if not df["Ucom"].isin(["cx", "un"]).all():
         st.error("Não foi encontrado fator de conversão")
@@ -128,34 +136,59 @@ def calculos(df, vl_total_nf,ignora_impostos):
         fator_conversao = solicita_input(df, "fator_conversão")
         df["Qt un"] = df["qt_Com"]
         df["Qt Cx"] = df["Qt un"] / fator_conversao
+        if calc_bonificacao:
+            df_bon["Qt un"] = df_bon["qt_Com"]
+            df_bon["Qt Cx"] = df_bon["Qt un"] / fator_conversao
+
     elif "cx" in df["Ucom"].values or escolha_conversão_user=="CX/FD":
         fator_conversao = solicita_input(df, "fator_conversão")
         df["Qt Cx"] = df["qt_Com"]
         df["Qt un"] = df["Qt Cx"] * fator_conversao
+        if calc_bonificacao:
+            df_bon["Qt Cx"] = df_bon["qt_Com"]
+            df_bon["Qt un"] = df_bon["Qt Cx"] * fator_conversao
+
     else:
         st.error("Erro4")
         st.stop()
 
+    if calc_bonificacao:
+        df_bon["Qt Cx Bon"] = df_bon["Qt Cx"]*desconsidera_bonificacao
+        df_bon["Qt un Bon"] = df_bon["Qt un"]*desconsidera_bonificacao
+
     linhas_com_guia = df[df["ICMS_CST"].isin(["00", "20"]) & (df["CEST"] != "")]
     if not linhas_com_guia.empty and not ignora_impostos:
         st.divider()
-        #linhas_com_guia[["Descrição","CEST"]]
     
         if st.toggle("Já possuo retorno da contabilidade"):
             st.markdown("### Informe Calculo ST :blue[Contabilidade]")
             guia_st = solicita_input(linhas_com_guia, "guia_ST")
+
             df = df.merge(guia_st,how="left")
+            
+            if calc_bonificacao:
+                df=df.merge(df_bon[["Descrição", "Qt Cx Bon", "Qt un Bon"]],how="left")
+                df["Qt Cx"] = df["Qt Cx Bon"].fillna(0) + df["Qt Cx"]
+                df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
+                            
             df["Valor Guia ST"] = df["Valor Guia ST"].fillna(0)
             df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["V_FCPST"] - df["Valor Desconto"]
             df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
             df["Valor un"] = df["Valor Total"] / df["Qt un"]
 
+
             total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()+df["Valor Guia ST"].sum()-df["Valor Desconto"].sum()
             total_Valor_Total = round(df["Valor Total"].sum(),2)
-            return df, total_impostos, total_Valor_Total
+            return df, df_bon, total_impostos, total_Valor_Total
         else:
             st.error(f"Contactar Contabilidade Nfe possui itens com CEST")
             st.stop()
+
+
+    if calc_bonificacao:
+        df=df.merge(df_bon[["Descrição", "Qt Cx Bon", "Qt un Bon"]],how="left")
+        df["Qt Cx"] = df["Qt Cx Bon"].fillna(0) + df["Qt Cx"]
+        df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
 
     if not vl_total_nf == df["Valor Original"].sum() and not ignora_impostos:
         df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["V_FCPST"] - df["Valor Desconto"]
@@ -171,14 +204,35 @@ def calculos(df, vl_total_nf,ignora_impostos):
 
     total_Valor_Total = round(df["Valor Total"].sum(),2)
 
-    return df, total_impostos, total_Valor_Total
+    return df, df_bon, total_impostos, total_Valor_Total
 
 # --- Interface Streamlit ---
 st.set_page_config(page_title="Calculo NFe", layout="wide")
+HOJE = datetime.now().date()
 st.markdown("# :material/Docs: Calculo NF-e de Compras")
 st.divider()
 st.markdown("## :material/Upload: Importação de Arquivo xml")
 calc_bonificacao = st.toggle("Calcular Bonificação")
+
+with st.sidebar:
+    st.markdown("# :material/Filter_Alt: Filtros")
+    desconsidera_bonificacao = st.number_input("% Para desconsiderar na Bonificação",min_value=0.00,max_value=100.00,value=10.00)
+    desconsidera_bonificacao = 1-(desconsidera_bonificacao/100)
+
+    st.divider()
+    st.markdown("# Legenda")
+    st.markdown("### Valor Boletos")
+    st.markdown(":green[R$###.###,##] - Boleto = Calculo")
+    st.markdown(":orange[R$###.###,##] - Boleto = Total Nfe")
+    st.markdown(":red[R$###.###,##] - Valor Divergente")
+    st.space()
+    st.markdown("### Vencimento Boletos")
+    st.markdown(f"{HOJE} - Vencimento OK")
+    st.markdown(f":red[:material/Close: {HOJE-timedelta(days=1)}] - Vencido")
+
+    st.divider()
+    st.markdown("# Melhorias")
+    st.markdown("|- Opção de imbutir valor de frete no calculo")
 
 c1,c2 = st.columns(2)
 with c1:
@@ -187,12 +241,33 @@ with c2:
     uploaded_file_2 = st.file_uploader("BONIFICAÇÃO - Arraste o XML da nota fiscal aqui", type="xml")
 
 if uploaded_file:
-    df, total_nf, soma_itens, emitente_nome, emitente_fantasia, Nr_Nfe, Boletos = processa_XML(uploaded_file)
+    df, total_nf, soma_itens, emitente_nome, emitente_fantasia, Nr_Nfe, Boletos, pgto = processa_XML(uploaded_file)
+
+    if calc_bonificacao:
+        if uploaded_file_2:
+            df_bon, _, _, emitente_nome_bon, emitente_fantasia_bon, Nr_Nfe_bon, _, _  = processa_XML(uploaded_file_2)
+            if emitente_nome != emitente_nome_bon:
+                st.error("NFs possuem emitente divergente")
+                st.stop()
+            if Nr_Nfe==Nr_Nfe_bon:
+                st.error("Nº NF BONIFICAÇÃO não pode ser o mesmo da NF COMPRA")
+                st.stop()
+            if desconsidera_bonificacao==100:
+                st.error(":material/Close: Não é possível calcular bonificação ignorando 100% da bonificação")
+                st.markdown("Valor padrão 10%")
+                st.stop()
+
+        else:
+            st.error(":material/Close: Insira o XML da bonificação")
+            st.stop()
     st.divider()
 
     ignora_impostos = st.toggle("Não considerar impostos")
-
-    df_calculado, imposto_somado, Valor_Total_Somado = calculos(df, total_nf, ignora_impostos)
+    
+    if calc_bonificacao:
+        df_calculado, df_calculado_bon, imposto_somado, Valor_Total_Somado = calculos(df, total_nf, ignora_impostos,df_bon)
+    else:
+        df_calculado, _, imposto_somado, Valor_Total_Somado = calculos(df, total_nf, ignora_impostos, None)
 
     st.divider()
     st.markdown("## :material/Desktop_Mac: Informações Gerais")
@@ -236,22 +311,19 @@ if uploaded_file:
             )
 
     st.divider()
-    st.markdown(f"## :material/Payments: Boletos")
 
     if Boletos:
-        if isinstance(Boletos,list):
-            qt_Boleto = len(Boletos)
-            vl_total_boleto = sum(float(boleto["vDup"]) for boleto in Boletos)
-        else:
-            qt_Boleto=1
-            vl_total_boleto = float(Boletos["vDup"])
-
-    
+        st.markdown(f"## :material/Payments: Boletos")
+        qt_Boleto = len(Boletos)
+        vl_total_boleto = sum(float(boleto["vDup"]) for boleto in Boletos)
         st.markdown(f"### Boletos Emitidos: {qt_Boleto}")
+        
         if Valor_Total_Somado==vl_total_boleto:
             st.markdown(f"### Valor Total :green[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+        elif vl_total_boleto==total_nf:
+            st.markdown(f"### Valor Total :orange[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
         else:
-            st.error("Boleto com valor divergente da Nfe")
+            st.error("Boleto com valor divergente do Calculo")
             st.markdown(f"### Valor Total :red[R$ {vl_total_boleto}]")
         cols = st.columns(qt_Boleto)
 
@@ -271,6 +343,18 @@ if uploaded_file:
                             st.markdown(f"Vencimento: {boleto["dVenc"]}")
                         else:                            
                             st.markdown(f":red[:material/Close: Vencimento: {boleto["dVenc"]}]")
+
+        st.divider()
+    elif pgto:
+        forma_pgto = pgto["detPag"]["tPag"]
+        valor_pgto = float(pgto["detPag"]["vPag"])
+        if forma_pgto =="16":
+            st.markdown(f"## :material/Payments: Depósito Bancário")
+            if Valor_Total_Somado==valor_pgto:
+                st.markdown(f"### Valor Total :green[R$ {valor_pgto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+            else:
+                st.error("Boleto com valor divergente do Calculo")
+                st.markdown(f"### Valor Total :red[R$ {valor_pgto}]")
 
         st.divider()
     else:
