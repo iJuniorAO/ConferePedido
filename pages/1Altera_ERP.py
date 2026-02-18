@@ -132,7 +132,7 @@ def carregar_dados_onedrive(input_texto):
         st.error(f"Erro ao processar URL: {e}")
         return None
 @st.cache_data(ttl=86400, show_spinner=True)
-def carregar_lojas_supabase():
+def carregar_lojas_banco_dados():
     try:
         resposta = supabase.table("Lojas").select("Filial").order("Filial").execute()
         return [loja["Filial"] for loja in resposta.data]
@@ -179,7 +179,7 @@ def processar_pedidos(df, df_extra, df_Pedido_Loja):
     )
 
     return df_Pedido_Final, df_Erro_Desc, df_base
-def salvar_pedido_supabase(loja, tipo, pedido_erp, pedido_original, tabela, obs=None):
+def salvar_pedido_banco_dados(loja, tipo, pedido_erp, pedido_original, tabela, obs=None):
     try:
         dados = {
             "data_pedido": AGORA.strftime("%Y-%m-%d"),
@@ -247,14 +247,17 @@ confere_prazo_pedido()
 st.space()
 
 #Tabs para base de dados e importação pedidos
-tab1,tab2 = st.tabs([":material/Database: Base de Dados",":material/Database_Upload: Importação de Pedidos"])
+tab1,tab2,tab3 = st.tabs(
+    [":material/Database: Base de Dados",
+     ":material/Database_Upload: Pedidos Lojas",
+     ":material/Database_Upload: Pedido Atacado"])
 with tab1:
     st.header("Upload de Bases de Dados")
-    bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?")
+    bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?",value=True)
     if bd_automatico:
         f_produto_auto = carregar_dados_onedrive(link_produto)
         f_extra_auto = carregar_dados_onedrive(link_produto_extra)
-        LOJAS = carregar_lojas_supabase()
+        LOJAS = carregar_lojas_banco_dados()
         desativa_manual = True
 
     col1, col2 = st.columns(2)
@@ -262,22 +265,25 @@ with tab1:
         f_produto = st.file_uploader(":material/Barcode: Arquivo 00001produto.txt", disabled=desativa_manual, type="txt")
     with col2:
         f_extra = st.file_uploader(":material/Add: Arquivo 00001produtoextra.txt",disabled=desativa_manual, type="txt")
-
 with tab2:
-    tabela1 = st.columns([0.1, 0.8, 0.1])
-    with tabela1[1]:
-        st.header("Upload de Pedidos da Loja")
-        f_pedido = st.file_uploader(":material/Article: Pedido da Loja (.txt)", type="txt")
+    st.header("Upload de Pedidos da Loja")
+    f_pedido = st.file_uploader(":material/Article: Pedido Loja.txt", type="txt")
+with tab3:
+    st.header("Upload de Pedidos do Atacado")
+    f_pedido_atacado = st.file_uploader(":material/Article: Pedido Atacado.xlsx", type="xlsx")
 
 loja_pedido = st.selectbox(":red[Seleciona Loja]", LOJAS, index=None, placeholder="Seleciona a loja que realizou o pedido")
 st.space()
 
-if ((f_produto and f_extra) or desativa_manual) and f_pedido:
+
+if ((f_produto and f_extra) or desativa_manual) and f_pedido or f_pedido_atacado:
+    if f_pedido and f_pedido_atacado:
+        st.error("Inserido Pedido Loja e Pedido Atacado - Informar somente 1")
+        st.stop()
     if not loja_pedido:
         st.error(":material/Priority_High: Selecione uma Loja")
         st.stop()
     # --- PROCESSAMENTO ---
-    # Carregamento
     if desativa_manual:
         df = abrir_arquivo_txt(f_produto_auto, colunas_produto)
         df_extra = abrir_arquivo_txt(f_extra_auto, colunas_produto_extra)
@@ -292,8 +298,29 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
         df_extra = abrir_arquivo_txt(f_extra, colunas_produto_extra)
 
     # Importa Pedido da Loja
-    f_pedido = limpa_texto(f_pedido)
-    df_Pedido_Loja, df_Erro_Qt, Linhas_Pedidos = trata_pedido_loja(abrir_arquivo_txt(f_pedido), colunas_Pedidos)
+    if f_pedido:
+        f_pedido = limpa_texto(f_pedido)
+        df_Pedido_Loja, df_Erro_Qt, Linhas_Pedidos = trata_pedido_loja(abrir_arquivo_txt(f_pedido), colunas_Pedidos)
+    else:
+        df_pedido_atacado = pd.read_excel(f_pedido_atacado,engine="openpyxl")
+        df_pedido_atacado = df_pedido_atacado.dropna()
+        if df_pedido_atacado.empty:
+            st.error("Pedido Em Branco")
+            st.stop()
+
+        df_pedido_atacado["Qt Solicitada"] = pd.to_numeric(df_pedido_atacado["Qt de Caixa"],errors="coerce")
+        
+        linhas_com_erro = df_pedido_atacado[df_pedido_atacado["Qt Solicitada"].isna()]
+        df_pedido_atacado = df_pedido_atacado.dropna()
+        if not linhas_com_erro.empty:
+            st.error("Há linhas com formatação errada")
+            linhas_com_erro
+
+        df_pedido_atacado["Qt Solicitada"] = df_pedido_atacado["Qt de Caixa"].astype(int).astype(str) + " cx " + df_pedido_atacado["Descricao"]
+        f_pedido_atacado = "\n".join(df_pedido_atacado["Qt Solicitada"])
+        f_pedido_atacado = io.StringIO(f_pedido_atacado)
+
+        df_Pedido_Loja, df_Erro_Qt, Linhas_Pedidos = trata_pedido_loja(abrir_arquivo_txt(f_pedido_atacado), colunas_Pedidos)
     produtos_cadastrados = len(df)
 
     df_Pedido_Final, df_Erro_Desc, df_Produto_Base = processar_pedidos(df, df_extra, df_Pedido_Loja)
@@ -353,28 +380,26 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido:
         else:
             st.header(f":blue[{loja_pedido}] - Baixar Pedidos Gerados")
         
-        if st.button ("Gerar Arquivos para Importação", width="stretch"):
-                c1, c2, c3 = st.columns(3)
-                tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
-                for tipo, col in tipos:
-                    df_sub = df_Pedido_Final[df_Pedido_Final["TIPO"] == tipo][["Codigo", "VALOR_STR"]]
-                    with col:
-                        if not df_sub.empty:
-                            st.success(f"[{len(df_sub)}] Pedido {tipo} pronto!")
-                            # Gera o CSV em memória para download 
-                            output = io.StringIO()
-                            df_sub.to_csv(output, sep="\t", index=False, header=False)
-                            
-                            st.download_button(
-                                label=f":material/Download: Baixar Pedido {tipo}",
-                                data=output.getvalue(),
-                                file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
-                                mime="text/plain"
-                            )
-                            if not st.session_state.get("debugger"):
-                                salvar_pedido_supabase(loja_pedido, tipo, output, f_pedido, "PedidosLojas", "TESTE")
-                        else:
-                            st.info(f"Sem itens para {tipo}")
+        c1, c2, c3 = st.columns(3)
+        tipos = [("SECO", c1), ("CONG", c2), ("PESO", c3)]
+        for tipo, col in tipos:
+            df_sub = df_Pedido_Final[df_Pedido_Final["TIPO"] == tipo][["Codigo", "VALOR_STR"]]
+            with col:
+                if not df_sub.empty:
+                    st.success(f"[{len(df_sub)}] Pedido {tipo} pronto!")
+                    # Gera o CSV em memória para download 
+                    output = io.StringIO()
+                    df_sub.to_csv(output, sep="\t", index=False, header=False)
+                    
+                    st.download_button(
+                        label=f":material/Download: Baixar Pedido {tipo}",
+                        data=output.getvalue(),
+                        file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
+                        mime="text/plain"
+                    )
+                    #salvar_pedido_banco_dados(loja_pedido, tipo, output, f_pedido, "PedidosLojas", "TESTE")
+                else:
+                    st.info(f"Sem itens para {tipo}")
 
 #todos arquivos bd enviados menos o pedido
 elif f_produto and f_extra and not f_pedido:
