@@ -303,6 +303,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido or f_pedido_atacado
         df_Pedido_Loja, df_Erro_Qt, Linhas_Pedidos = trata_pedido_loja(abrir_arquivo_txt(f_pedido), colunas_Pedidos)
     else:
         df_pedido_atacado = pd.read_excel(f_pedido_atacado,engine="openpyxl")
+        df_pedido_atacado = df_pedido_atacado[['CodProduto', 'Descricao', 'R$/Un', 'Estoq', 'Qt de Caixa']]
         df_pedido_atacado = df_pedido_atacado.dropna()
         if df_pedido_atacado.empty:
             st.error("Pedido Em Branco")
