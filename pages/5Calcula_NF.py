@@ -311,11 +311,17 @@ if uploaded_file:
             )
 
     st.divider()
+    
 
     if Boletos:
         st.markdown(f"## :material/Payments: Boletos")
-        qt_Boleto = len(Boletos)
-        vl_total_boleto = sum(float(boleto["vDup"]) for boleto in Boletos)
+        if Boletos["nDup"]=="001":
+            qt_Boleto=1
+            vl_total_boleto=float(Boletos["vDup"])
+            Vencimento_Boleto = datetime.strptime(Boletos["dVenc"],"%Y-%m-%d")
+        else:
+            qt_Boleto = len(Boletos)
+            vl_total_boleto = sum(float(boleto["vDup"]) for boleto in Boletos)
         st.markdown(f"### Boletos Emitidos: {qt_Boleto}")
         
         if Valor_Total_Somado==vl_total_boleto:
@@ -330,8 +336,11 @@ if uploaded_file:
         if qt_Boleto==1:
             with st.container(border=True):
                     st.markdown(f"Boleto: {Boletos["nDup"]}")
-                    st.markdown(f"Valor: {float(Boletos["vDup"]):,.2f}".replace(".","x").replace(",",".").replace("x",","))
-                    st.markdown(f"Vencimento: {Boletos["dVenc"]}")
+                    st.markdown(f"Valor: {vl_total_boleto:,.2f}".replace(".","x").replace(",",".").replace("x",","))
+                    if Vencimento_Boleto>datetime.now():
+                        st.markdown(f"Vencimento: {Vencimento_Boleto.date()}")
+                    else:                            
+                        st.markdown(f":red[:material/Close: Vencimento: {Vencimento_Boleto.date()}]")
         else:
             for i, boleto in enumerate(Boletos):
                 Vencimento_Boleto = datetime.strptime(boleto["dVenc"],"%Y-%m-%d")
