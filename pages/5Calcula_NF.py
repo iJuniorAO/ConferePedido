@@ -26,7 +26,6 @@ def processa_XML(xml_file):
       
     total_nf_xml = float(data['nfeProc']['NFe']['infNFe']['total']['ICMSTot']['vNF'])
 
-
     if "cobr" in data["nfeProc"]["NFe"]["infNFe"]:
         Boletos = data["nfeProc"]["NFe"]["infNFe"]["cobr"].get("dup",0)
     else:
@@ -221,9 +220,10 @@ with st.sidebar:
 
     st.divider()
     st.markdown("# Legenda")
-    st.markdown("### Valor Boletos")
+    st.markdown("### Valor Total Boletos")
     st.markdown(":green[R$###.###,##] - Boleto = Calculo")
     st.markdown(":orange[R$###.###,##] - Boleto = Total Nfe")
+    st.markdown(":blue[R$###.###,##] - Boleto = Total Produtos")
     st.markdown(":red[R$###.###,##] - Valor Divergente")
     st.space()
     st.markdown("### Vencimento Boletos")
@@ -311,11 +311,10 @@ if uploaded_file:
             )
 
     st.divider()
-    
 
     if Boletos:
         st.markdown(f"## :material/Payments: Boletos")
-        if Boletos["nDup"]=="001":
+        if isinstance(Boletos, dict):
             qt_Boleto=1
             vl_total_boleto=float(Boletos["vDup"])
             Vencimento_Boleto = datetime.strptime(Boletos["dVenc"],"%Y-%m-%d")
@@ -324,10 +323,12 @@ if uploaded_file:
             vl_total_boleto = sum(float(boleto["vDup"]) for boleto in Boletos)
         st.markdown(f"### Boletos Emitidos: {qt_Boleto}")
         
-        if Valor_Total_Somado==vl_total_boleto:
+        if vl_total_boleto==Valor_Total_Somado:
             st.markdown(f"### Valor Total :green[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
         elif vl_total_boleto==total_nf:
             st.markdown(f"### Valor Total :orange[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+        elif vl_total_boleto==soma_itens:
+            st.markdown(f"### Valor Total :blue[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
         else:
             st.error("Boleto com valor divergente do Calculo")
             st.markdown(f"### Valor Total :red[R$ {vl_total_boleto}]")
@@ -364,6 +365,11 @@ if uploaded_file:
             else:
                 st.error("Boleto com valor divergente do Calculo")
                 st.markdown(f"### Valor Total :red[R$ {valor_pgto}]")
+        if forma_pgto =="15":
+            st.markdown(f"## :material/Payments: Boleto Bancário")
+            st.markdown(f"### Valor Total R$ {valor_pgto}")
+        if forma_pgto =="90":
+            st.markdown(f"## :material/Payments: Sem Pagamento")
 
         st.divider()
     else:
@@ -371,7 +377,6 @@ if uploaded_file:
         st.markdown(":material/Close: Não recebemos NF sem Boleto - Solicitar ao Motorista")
         st.markdown("Após receber Boleto verificar vencimento")
         st.divider()
-
 
     st.markdown("## :material/Post: Relatório para Compras")
 
