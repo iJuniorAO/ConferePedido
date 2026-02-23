@@ -380,9 +380,12 @@ if uploaded_file:
 
     st.markdown("## :material/Post: Relatório para Compras")
 
-    df_dir = df_calculado[['Item', 'Descrição', 'Qt Cx', 'Valor Total', 'Valor un']]
+    df_calculado["Qt/Cx"] = df_calculado["Qt un"]/df_calculado["Qt Cx"]
+
+    df_dir = df_calculado[['Item', 'Descrição', 'Qt Cx', "Qt/Cx", 'Valor Total', 'Valor un']]
     st.dataframe(
         df_dir.style.format({
+            "Qt/Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
             "Qt Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
             "Valor Total": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
             "Valor un": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
