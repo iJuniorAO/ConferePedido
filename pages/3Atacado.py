@@ -14,7 +14,7 @@ def abrir_arquivo_txt(arquivo, colunas=None):
     except Exception as e:
         st.error(f"Erro ao ler arquivo {e}")
         st.stop()
-@st.cache_data
+@st.cache_data(ttl=7200, show_spinner=True)
 def carregar_dados_onedrive(input_texto):
     try:
         # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
@@ -86,6 +86,8 @@ link_produto_extra = st.secrets["onedrive"]["links"]["produto_extra"]
 link_tabela_preco = st.secrets["onedrive"]["links"]["tabela_preco"]
 desativa_manual = False
 produtos_cadastrados = 0
+habilita_preco_cx = False
+
 
 # --- CONF PAGINA
 st.set_page_config(
@@ -96,7 +98,7 @@ st.set_page_config(
 st.title(":material/Shopping_Cart: Tabela de Produtos para :red[Atacado]")
 
 # --- LAYOUT PAGINA
-bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?")
+bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?",value=True)
 if bd_automatico:
     f_produto_auto = carregar_dados_onedrive(link_produto)
     f_extra_auto = carregar_dados_onedrive(link_produto_extra)
@@ -148,8 +150,13 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
         df_merge = df.merge(df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left")
         df_merge = df_merge[['CodProduto', 'CodGrupo', 'Descricao', 'Estoq', 'Fam', 'ListaCodCaract']]
        
-        df_preco = df_preco[df_preco["Tabela"] == "PRATI"]
-        df_completo = df_merge.merge(df_preco[["CodProduto", "Preco"]], on="CodProduto", how="left")
+        #df_preco = df_preco[df_preco["Tabela"] == "PRATI"]
+
+        df_preco = df_preco.pivot(index='CodProduto', columns='Tabela', values='Preco')
+        df_preco = df_preco.reset_index()
+
+        df_completo = df_merge.merge(df_preco, on="CodProduto", how="left")
+        df_completo = df_completo.rename(columns={"SUGER":"Lojas","PRATI":"Atacado"})
 
         #Cria coluna de fornecedores
         padrao = "|".join(FORNECEDORES)
@@ -193,35 +200,67 @@ if (f_produto and f_extra and f_tabela_preco) or desativa_manual:
         ind_remover_linhas = remover_linhas["selection"]["rows"]
         df_removido = df_completo.drop(df_completo.index[ind_remover_linhas]).copy()
 
-        df_removido = df_removido[['CodProduto', 'Descricao', 'Fornecedor', 'TIPO', 'Estoq', 'Preco']]
+
+        df_removido = df_removido[['CodProduto', 'Descricao', 'Fornecedor', 'TIPO', 'Estoq', 'Lojas',"Atacado"]]
         df_removido = df_removido.sort_values(by=["Fornecedor"])
 
-        ultimo = df_removido["Descricao"].astype(str).str.split().str[-1]
-        df_removido["CONV"] = np.where(ultimo.str.isdigit(), ultimo, 1).astype(float)
+        if habilita_preco_cx:
+            ultimo = df_removido["Descricao"].astype(str).str.split().str[-1]
+            df_removido["CONV"] = np.where(ultimo.str.isdigit(), ultimo, 1).astype(float)
 
-        df_removido["Venda"] = df_removido["CONV"] * df_removido["Preco"]
+            df_removido["Venda"] = df_removido["CONV"] * df_removido["Lojas"]
         
-        df_removido["R$/Un"] = df_removido["Preco"].map(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        df_removido["R$ Venda"] = df_removido["Venda"].map(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        df_removido["Lojas"] = df_removido["Lojas"].map(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        df_removido["Atacado"] = df_removido["Atacado"].map(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        if habilita_preco_cx:
+            df_removido["R$ Venda"] = df_removido["Venda"].map(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
         if not df_removido.empty and len(df_removido) == len(df_completo):
             st.write(f":material/List: Total Itens na lista: :red[{len(df_removido)} itens]")
         elif df_removido.empty:
             st.write(f":material/List: :red[Nenhum item na lista]")
+            st.stop()
         else:
             st.write(f":material/List: Total Itens na lista: :blue[{len(df_removido)} itens]")
  
         status.update(label="Processamento concluído!", state="complete")
     
+    st.divider()
     st.markdown("## :material/Sell: Lista Atacado:")
-    if df_removido.empty:
-        st.markdown(f"### :red[:material/Close: Nenhum item na lista]")
-        st.stop()
-    st.dataframe(
-        df_removido[["CodProduto", "Descricao", "R$/Un", "R$ Venda", "Fornecedor","Estoq"]].sort_values("Fornecedor"),
-        hide_index=True,
-        
-    )
+    if habilita_preco_cx:
+        st.dataframe(
+            df_removido[["CodProduto", "Descricao", "R$/Un", "R$ Venda", "Fornecedor","Estoq"]].sort_values("Fornecedor"),
+            hide_index=True,        
+        )
+    else:
+        st.dataframe(
+            df_removido[["CodProduto", "Descricao", "Lojas","Atacado", "Fornecedor","Estoq"]].sort_values("Fornecedor"),
+            hide_index=True,        
+        )
+
+    st.divider()
+    if st.toggle("Mostrar Preços com Atenção"):
+        st.markdown("# Validar preço dos produtos abaixo")
+
+        df_atencao = df_completo[["CodProduto", "Descricao", "Estoq", "Lojas", "Atacado","Fornecedor","TIPO"]].sort_values(by="CodProduto")
+        df_atencao["Dif_Preco"] = df_atencao["Lojas"]-df_atencao["Atacado"]
+
+        st.markdown("### Mesmo Preço - Lojas e Atacado")
+        df_atencao_view = df_atencao[df_atencao["Dif_Preco"]==0].sort_values(by="Estoq",ascending=False)
+        df_atencao_view
+
+
+        st.markdown("### Preço Maior nas Lojas")
+        df_atencao["Dif_Perc"] = (df_atencao["Dif_Preco"]/df_atencao["Lojas"])*100
+        df_atencao_view = df_atencao[df_atencao["Dif_Preco"]>0].sort_values(by="Dif_Perc",ascending=False)
+        df_atencao_view
+
+        st.markdown("### Mais que 50% para Atacado")
+        df_atencao_view = df_atencao[df_atencao["Dif_Perc"]<=-20].sort_values(by="Dif_Perc")
+        df_atencao_view
+
+
+
 
 else:
     st.info("Insira _'00001produto.txt'_ e _'00001produtoextra.txt'_ e _'00001produtotabela.txt'_ para começar a edição")
