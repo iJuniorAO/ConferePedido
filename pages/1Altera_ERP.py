@@ -303,13 +303,13 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido or f_pedido_atacado
         df_Pedido_Loja, df_Erro_Qt, Linhas_Pedidos = trata_pedido_loja(abrir_arquivo_txt(f_pedido), colunas_Pedidos)
     else:
         df_pedido_atacado = pd.read_excel(f_pedido_atacado,engine="openpyxl")
-        df_pedido_atacado = df_pedido_atacado[['CodProduto', 'Descricao', 'R$/Un', 'Estoq', 'Qt de Caixa']]
-        df_pedido_atacado = df_pedido_atacado.dropna()
+        df_pedido_atacado = df_pedido_atacado[['CodProduto', 'Descricao', 'R$/Un', 'QUANTIDADE CX']]
+        df_pedido_atacado = df_pedido_atacado.dropna(subset={"QUANTIDADE CX"})
         if df_pedido_atacado.empty:
             st.error("Pedido Em Branco")
             st.stop()
 
-        df_pedido_atacado["Qt Solicitada"] = pd.to_numeric(df_pedido_atacado["Qt de Caixa"],errors="coerce")
+        df_pedido_atacado["Qt Solicitada"] = pd.to_numeric(df_pedido_atacado["QUANTIDADE CX"],errors="coerce")
         
         linhas_com_erro = df_pedido_atacado[df_pedido_atacado["Qt Solicitada"].isna()]
         df_pedido_atacado = df_pedido_atacado.dropna()
@@ -317,7 +317,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido or f_pedido_atacado
             st.error("Há linhas com formatação errada")
             linhas_com_erro
 
-        df_pedido_atacado["Qt Solicitada"] = df_pedido_atacado["Qt de Caixa"].astype(int).astype(str) + " cx " + df_pedido_atacado["Descricao"]
+        df_pedido_atacado["Qt Solicitada"] = df_pedido_atacado["QUANTIDADE CX"].astype(int).astype(str) + " cx " + df_pedido_atacado["Descricao"]
         f_pedido_atacado = "\n".join(df_pedido_atacado["Qt Solicitada"])
         f_pedido_atacado = io.StringIO(f_pedido_atacado)
 
