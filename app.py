@@ -148,8 +148,8 @@ col1,col2, col3 = st.columns([2,2,1])
 with col1:
     st.markdown("### :green[:material/Cloud_Done:] ATIVOS")
 
-    if st.button("Altera ERP"):
-        st.switch_page("pages/1Altera_ERP.py")
+    if st.button("Lança Pedidos"):
+        st.switch_page("pages/1Lanca_Pedido.py")
     if st.button("Lista"):
         st.switch_page("pages/2Lista.py")
     if st.button("Atacado"):

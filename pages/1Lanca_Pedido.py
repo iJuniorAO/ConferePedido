@@ -179,22 +179,25 @@ def processar_pedidos(df, df_extra, df_Pedido_Loja):
     )
 
     return df_Pedido_Final, df_Erro_Desc, df_base
-def salvar_pedido_banco_dados(loja, tipo, pedido_erp, pedido_original, tabela, obs=None):
-    try:
-        dados = {
-            "data_pedido": AGORA.strftime("%Y-%m-%d"),
-            "hora_pedido": AGORA.strftime("%H:%M"),
-            "loja": loja,
-            "tipo_pedido": tipo,
-            "pedido_erp": pedido_erp.getvalue(),
-            "pedido_original": pedido_original.getvalue(),
-            "obs": obs,
-        }        
-        supabase.table(tabela).insert(dados).execute()
-        return st.success(f":material/Check: Pedido {loja} {tipo} salvo no Banco de Dados!")
-    
-    except Exception as e:
-        return st.error(f":material/Close: ERRO - Não foi possível salvar no Banco de Dados {e}")
+def salvar_pedido_banco_dados(loja, tipo, pedido_erp, pedido_original, obs=None):
+    if loja != "ATACADO":
+        try:
+            dados = {
+                "data_pedido": AGORA.strftime("%Y-%m-%d"),
+                "hora_pedido": AGORA.strftime("%H:%M"),
+                "loja": loja,
+                "tipo_pedido": tipo,
+                "pedido_erp": pedido_erp.getvalue(),
+                "pedido_original": pedido_original.getvalue(),
+                "obs": obs,
+            }        
+            supabase.table("PedidosLojas").insert(dados).execute()
+            return st.success(f":material/Check: Pedido {loja} {tipo} salvo no Banco de Dados!")
+        
+        except Exception as e:
+            return st.error(f":material/Close: ERRO - Não foi possível salvar no Banco de Dados {e}")
+    else:
+        return st.info("Pedidos Atacado não são Salvo no Banco de Dados")
 
 AGORA = datetime.now()
 REGRAS_PRAZO = [
@@ -398,7 +401,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido or f_pedido_atacado
                         file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
                         mime="text/plain"
                     )
-                    #salvar_pedido_banco_dados(loja_pedido, tipo, output, f_pedido, "PedidosLojas", "TESTE")
+                    salvar_pedido_banco_dados(loja_pedido, tipo, output, f_pedido)
                 else:
                     st.info(f"Sem itens para {tipo}")
 
