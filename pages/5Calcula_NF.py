@@ -11,32 +11,30 @@ def processa_XML(xml_file):
     # Transforma o XML em um dicionário Python
     data = xmltodict.parse(xml_file)
     
-    detalhes = data['nfeProc']['NFe']['infNFe']['det']
+    info_nfe = data['nfeProc']['NFe']['infNFe']
+    detalhes = info_nfe['det']
+    total = info_nfe['total']
+
     if not isinstance(detalhes, list):
         detalhes = [detalhes]
 
-    emitente_nome = data['nfeProc']['NFe']['infNFe']["emit"]["xNome"]
+    emitente_nome = info_nfe["emit"]["xNome"]
 
-    if "xFant" in data['nfeProc']['NFe']['infNFe']["emit"]:
-        emitente_fantasia = data['nfeProc']['NFe']['infNFe']["emit"]["xFant"]
+    if "xFant" in info_nfe["emit"]:
+        emitente_fantasia = info_nfe["emit"]["xFant"]
     else:
         emitente_fantasia=""
 
-    nr_Nfe = data['nfeProc']['NFe']['infNFe']["ide"]["nNF"]
+    nr_Nfe = info_nfe["ide"]["nNF"]
       
-    total_nf_xml = float(data['nfeProc']['NFe']['infNFe']['total']['ICMSTot']['vNF'])
+    total_nf_xml = float(total['ICMSTot']['vNF'])
+    outras_despesas = float(total['ICMSTot']['vOutro'])
 
     if "cobr" in data["nfeProc"]["NFe"]["infNFe"]:
         Boletos = data["nfeProc"]["NFe"]["infNFe"]["cobr"].get("dup",0)
     else:
         Boletos=0
     pgto = data["nfeProc"]["NFe"]["infNFe"].get("pag",0)
-
-    if False:
-        if "cobr" in data["nfeProc"]["NFe"]["infNFe"]:
-            Boletos = data["nfeProc"]["NFe"]["infNFe"]["cobr"].get("dup","")
-        else:
-            Boletos=0
 
     lista_produtos = []
     soma_produtos = 0
@@ -84,7 +82,7 @@ def processa_XML(xml_file):
             "Valor Desconto": v_desc
         })
     soma_produtos = round(soma_produtos,2)
-    return pd.DataFrame(lista_produtos), total_nf_xml, soma_produtos, emitente_nome, emitente_fantasia, nr_Nfe, Boletos, pgto
+    return pd.DataFrame(lista_produtos), total_nf_xml, soma_produtos, emitente_nome, emitente_fantasia, nr_Nfe, Boletos, pgto, outras_despesas
 def extrair_inteiro_unidade(texto_unidade):
     numeros = re.findall(r'\d+', str(texto_unidade))
     if numeros:
@@ -171,7 +169,8 @@ def calculos(df, vl_total_nf,ignora_impostos,df_bon=""):
                 df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
                             
             df["Valor Guia ST"] = df["Valor Guia ST"].fillna(0)
-            df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["V_FCPST"] - df["Valor Desconto"]
+            df["Valor Outras Despesas"] = (df["Valor Original"]/df["Valor Original"].sum())*outras_despesas
+            df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["Valor Outras Despesas"] + df["V_FCPST"] - df["Valor Desconto"]
             df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
             df["Valor un"] = df["Valor Total"] / df["Qt un"]
 
@@ -241,11 +240,11 @@ with c2:
     uploaded_file_2 = st.file_uploader("BONIFICAÇÃO - Arraste o XML da nota fiscal aqui", type="xml")
 
 if uploaded_file:
-    df, total_nf, soma_itens, emitente_nome, emitente_fantasia, Nr_Nfe, Boletos, pgto = processa_XML(uploaded_file)
+    df, total_nf, soma_itens, emitente_nome, emitente_fantasia, Nr_Nfe, Boletos, pgto, outras_despesas = processa_XML(uploaded_file)
 
     if calc_bonificacao:
         if uploaded_file_2:
-            df_bon, _, _, emitente_nome_bon, emitente_fantasia_bon, Nr_Nfe_bon, _, _  = processa_XML(uploaded_file_2)
+            df_bon, _, _, emitente_nome_bon, emitente_fantasia_bon, Nr_Nfe_bon, _, _, __  = processa_XML(uploaded_file_2)
             if emitente_nome != emitente_nome_bon:
                 st.error("NFs possuem emitente divergente")
                 st.stop()
@@ -356,20 +355,27 @@ if uploaded_file:
 
         st.divider()
     elif pgto:
-        forma_pgto = pgto["detPag"]["tPag"]
-        valor_pgto = float(pgto["detPag"]["vPag"])
-        if forma_pgto =="16":
-            st.markdown(f"## :material/Payments: Depósito Bancário")
-            if Valor_Total_Somado==valor_pgto:
-                st.markdown(f"### Valor Total :green[R$ {valor_pgto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
-            else:
-                st.error("Boleto com valor divergente do Calculo")
-                st.markdown(f"### Valor Total :red[R$ {valor_pgto}]")
-        if forma_pgto =="15":
-            st.markdown(f"## :material/Payments: Boleto Bancário")
-            st.markdown(f"### Valor Total R$ {valor_pgto}")
-        if forma_pgto =="90":
-            st.markdown(f"## :material/Payments: Sem Pagamento")
+        if isinstance(pgto["detPag"],list):
+            for pgto in pgto["detPag"]:
+                if pgto["tPag"]=="15":
+                    st.markdown(f"Boleto: R$: {pgto["vPag"]}")
+        else:
+        
+            forma_pgto = pgto["detPag"]["tPag"]
+            forma_pgto
+            valor_pgto = float(pgto["detPag"]["vPag"])
+            if forma_pgto =="16":
+                st.markdown(f"## :material/Payments: Depósito Bancário")
+                if Valor_Total_Somado==valor_pgto:
+                    st.markdown(f"### Valor Total :green[R$ {valor_pgto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+                else:
+                    st.error("Boleto com valor divergente do Calculo")
+                    st.markdown(f"### Valor Total :red[R$ {valor_pgto}]")
+            if forma_pgto =="15":
+                st.markdown(f"## :material/Payments: Boleto Bancário")
+                st.markdown(f"### Valor Total R$ {valor_pgto}")
+            if forma_pgto =="90":
+                st.markdown(f"## :material/Payments: Sem Pagamento")
 
         st.divider()
     else:
@@ -380,12 +386,12 @@ if uploaded_file:
 
     st.markdown("## :material/Post: Relatório para Compras")
 
-    df_calculado["Qt/Cx"] = df_calculado["Qt un"]/df_calculado["Qt Cx"]
+    df_calculado["Qt por Cx"] = df_calculado["Qt un"]/df_calculado["Qt Cx"]
 
-    df_dir = df_calculado[['Item', 'Descrição', 'Qt Cx', "Qt/Cx", 'Valor Total', 'Valor un']]
+    df_dir = df_calculado[['Item', 'Descrição', 'Qt Cx', "Qt por Cx", 'Valor Total', 'Valor un']]
     st.dataframe(
         df_dir.style.format({
-            "Qt/Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
+            "Qt por Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
             "Qt Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
             "Valor Total": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
             "Valor un": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
@@ -398,25 +404,23 @@ if uploaded_file:
     st.divider()
     st.markdown("## :material/Package: Logística: Conferência Cega")
     st.markdown(f"#### Emitente: :blue[{emitente_fantasia}] - {emitente_nome}")
-    coluna1, coluna2 = st.columns([3,1])
-    with coluna1:
-        colun1, colun2, colun3, colun4 = st.columns(4)
-        with colun1:
-            st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
-        with colun2:
-            st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
-        with colun3:
-            st.markdown(":____________________________")
-        with colun4:
-            st.markdown(":________________Volumes")
-    with coluna2:
-        st.markdown(":material/Check_Box_Outline_Blank: Lista/Divisão: ________________")
-        st.markdown(":material/Check_Box_Outline_Blank: Precificação: ________________")
+    colun1, colun2, colun3, colun4 = st.columns(4)
+    with colun1:
+        st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
+    with colun2:
+        st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
+    with colun3:
+        st.markdown(":____________________________")
+    with colun4:
+        st.markdown(":________________Volumes")
+
 
 
     df_log = df_calculado[["Codigo Fornecedor",'Descrição']].copy()
     st.markdown(f"#### Produtos:")
     df_log.index=df_calculado["Item"]
+    df_log["Qtd/Cx"]=""
+    df_log[" "]=""
     df_log['Qtd Contada'] = ""
     df_log['Data Validade'] = ""
     st.table(
