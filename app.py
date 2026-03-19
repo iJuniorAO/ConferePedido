@@ -7,6 +7,7 @@ pages = {
         st.Page("pages/8Conversor_Margem.py", title="margem x markup", icon=":material/swap_horizontal_circle:"),
     ],
     "Administrativo": [
+        st.Page("pages/Fazer_Pedido.py", title="Fazer Pedidos", icon=":material/universal_currency_alt:"),
         st.Page("pages/1Lanca_Pedido.py", title="Lança Pedidos",icon=":material/add_shopping_cart:"),
         st.Page("pages/4Pedidos.py", title="Pedidos Feitos", icon=":material/shopping_cart:"),
         st.Page("pages/5Calcula_NF.py", title="Calcula NFe", icon=":material/calculate:"),
