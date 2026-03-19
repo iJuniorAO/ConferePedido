@@ -419,7 +419,7 @@ if uploaded_file:
     df_log = df_calculado[["Codigo Fornecedor",'Descrição']].copy()
     st.markdown(f"#### Produtos:")
     df_log.index=df_calculado["Item"]
-    df_log["Qtd/Cx"]=""
+    df_log["Qt por Cx"]=""
     df_log[" "]=""
     df_log['Qtd Contada'] = ""
     df_log['Data Validade'] = ""

@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide")
 
 def buscar_pedido_bd(dt_inicial=None, dt_final=None, dt_igual=None):
-    query = supabase.table("PedidosLojas").select("*").order("id")   
+    query = supabase.table("PedidosLojas").select("*").order("id", desc=True)   
     with st.spinner("Processando...", show_time=True):
         try:
             if dt_igual:
@@ -39,7 +39,6 @@ def buscar_pedido_bd(dt_inicial=None, dt_final=None, dt_igual=None):
             return False, df
         except Exception as e:
             return True, (f"Erro ao buscar dados: {e}")
-            st.error(f"Erro ao buscar dados: {e}")
 
 falha, ultimos_pedidos = buscar_pedido_bd()
 if falha:

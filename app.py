@@ -13,8 +13,8 @@ pages = {
         st.Page("pages/7Planilha_Dev.py", title="Planilha Devolução", icon=":material/assignment_return:")
     ],
     "Lista":[
-        st.Page("pages/2Lista.py", title="Lista Lojas"),
-        st.Page("pages/3Atacado.py", title="Lista Atacado")
+        st.Page("pages/2Lista.py", title="Lista Lojas", icon=":material/shelves:"),
+        st.Page("pages/3Atacado.py", title="Lista Atacado", icon=":material/local_mall:")
     ],
     "Financeiro":[
         st.Page("pages/6Previa_Financeira.py", title="Previa Financeira", icon=":material/wallet:")
