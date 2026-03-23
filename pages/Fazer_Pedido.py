@@ -202,10 +202,10 @@ if (f_produto and f_extra) or desativa_manual:
     df_editado["Qt TXT"] = df_editado["Qt Cx"] * df_editado["Fator Conversao"]
     df_editado["Codigo"] = df_editado["CodProduto"].astype(str).str.rjust(13)
 
-    df_editado["VALOR_STR"] = df_editado["Qt TXT"].apply(lambda x: f"{x:09.3f}".replace(".", ","))
+    df_editado["Qt_TXT"] = df_editado["Qt TXT"].apply(lambda x: f"{x:09.3f}".replace(".", ","))
 
-    st.dataframe(df_editado[["CodProduto", "Descricao", "Fornecedor", "TIPO", "Estoq", "Fator Conversao"]])
-    df_editado = df_editado[["Codigo", "VALOR_STR"]]
+    st.dataframe(df_editado[["CodProduto", "Descricao", "Fornecedor", "TIPO", "Estoq", "Fator Conversao","Qt Cx", "Qt_TXT"]])
+    df_editado = df_editado[["Codigo", "Qt_TXT"]]
 
     output = io.StringIO()
     df_editado.to_csv(output, sep="\t", index=False, header=False)
