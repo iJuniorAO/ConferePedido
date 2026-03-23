@@ -28,6 +28,7 @@ def processa_XML(xml_file):
     nr_Nfe = info_nfe["ide"]["nNF"]
       
     total_nf_xml = float(total['ICMSTot']['vNF'])
+    total
     outras_despesas = float(total['ICMSTot']['vOutro'])
 
     if "cobr" in data["nfeProc"]["NFe"]["infNFe"]:
@@ -154,34 +155,57 @@ def calculos(df, vl_total_nf,ignora_impostos,df_bon=""):
         df_bon["Qt un Bon"] = df_bon["Qt un"]*desconsidera_bonificacao
 
     linhas_com_guia = df[df["ICMS_CST"].isin(["00", "20"]) & (df["CEST"] != "")]
-    if not linhas_com_guia.empty and not ignora_impostos:
+    
+    fornecedor_MG = str(uploaded_file.name)[:2] != "31"
+    if (not linhas_com_guia.empty and not ignora_impostos) or fornecedor_MG:
         st.divider()
     
         if st.toggle("Já possuo retorno da contabilidade"):
             st.markdown("### Informe Calculo ST :blue[Contabilidade]")
-            guia_st = solicita_input(linhas_com_guia, "guia_ST")
 
-            df = df.merge(guia_st,how="left")
-            
-            if calc_bonificacao:
-                df=df.merge(df_bon[["Descrição", "Qt Cx Bon", "Qt un Bon"]],how="left")
-                df["Qt Cx"] = df["Qt Cx Bon"].fillna(0) + df["Qt Cx"]
-                df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
-                            
-            df["Valor Guia ST"] = df["Valor Guia ST"].fillna(0)
+            if fornecedor_MG!="31":
+                guia_MG = df[["Descrição"]].copy()
+                guia_MG["Valor Guia Fora MG"] = 0.0
+                guia_MG = st.data_editor(
+                    guia_MG,
+                    width="stretch",
+                    hide_index=True,
+                )
+                if 0 in guia_MG.values:
+                    st.error("Guia MG está zerada!")
+                    st.stop()
+                df["Valor Guia Fora MG"] = guia_MG["Valor Guia Fora MG"]
+                #df["Valor Original"] = df["Valor Original"]+guia_MG["Valor Guia Fora MG"]
+            else:
+                df["Valor Guia Fora MG"] = 0
+
+            if not linhas_com_guia.empty:
+                guia_st = solicita_input(linhas_com_guia, "guia_ST")
+
+                df = df.merge(guia_st,how="left")
+                
+                if calc_bonificacao:
+                    df=df.merge(df_bon[["Descrição", "Qt Cx Bon", "Qt un Bon"]],how="left")
+                    df["Qt Cx"] = df["Qt Cx Bon"].fillna(0) + df["Qt Cx"]
+                    df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
+                df["Valor Guia ST"] = df["Valor Guia ST"].fillna(0)
+            else:
+                df["Valor Guia ST"]=0
+                                
             df["Valor Outras Despesas"] = (df["Valor Original"]/df["Valor Original"].sum())*outras_despesas
-            df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["Valor Outras Despesas"] + df["V_FCPST"] - df["Valor Desconto"]
+            df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia ST"] + df["Valor Guia Fora MG"] + df["Valor Outras Despesas"] + df["V_FCPST"] - df["Valor Desconto"]
             df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
             df["Valor un"] = df["Valor Total"] / df["Qt un"]
-
 
             total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()+df["Valor Guia ST"].sum()-df["Valor Desconto"].sum()
             total_Valor_Total = round(df["Valor Total"].sum(),2)
             return df, df_bon, total_impostos, total_Valor_Total
         else:
-            st.error(f"Contactar Contabilidade Nfe possui itens com CEST")
+            if fornecedor_MG:
+                st.error(f"Contactar Contabilidade - Fornecedor fora de MG")
+            if not linhas_com_guia.empty:
+                st.error(f"Contactar Contabilidade Nfe possui itens com CEST")
             st.stop()
-
 
     if calc_bonificacao:
         df=df.merge(df_bon[["Descrição", "Qt Cx Bon", "Qt un Bon"]],how="left")
@@ -189,9 +213,15 @@ def calculos(df, vl_total_nf,ignora_impostos,df_bon=""):
         df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
 
     if not vl_total_nf == df["Valor Original"].sum() and not ignora_impostos:
-        df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["V_FCPST"] - df["Valor Desconto"]
+        df["Valor Outras Despesas"] = (df["Valor Original"]/df["Valor Original"].sum())*outras_despesas
+        df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Outras Despesas"] + df["V_FCPST"] - df["Valor Desconto"]
+        
+        if "Valor Guia Fora MG" in df.columns:
+            df["Valor Total"] = df["Valor Total"] + df["Valor Guia Fora MG"]
         df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
         df["Valor un"] = df["Valor Total"] / df["Qt un"]
+
+        
 
         total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()-df["Valor Desconto"].sum()
     else:
@@ -201,6 +231,8 @@ def calculos(df, vl_total_nf,ignora_impostos,df_bon=""):
         total_impostos=0
 
     total_Valor_Total = round(df["Valor Total"].sum(),2)
+
+
 
     return df, df_bon, total_impostos, total_Valor_Total
 
@@ -268,9 +300,14 @@ if uploaded_file:
     else:
         df_calculado, _, imposto_somado, Valor_Total_Somado = calculos(df, total_nf, ignora_impostos, None)
 
+    with st.expander("Mostrar detalhes do calculo",icon=":material/function:"):
+        st.dataframe(
+            df.drop(columns=["Codigo Fornecedor"])
+        )
+
     st.divider()
     st.markdown("## :material/Desktop_Mac: Informações Gerais")
-    
+
     if "Valor Guia ST" in df_calculado.columns:
         st.warning(":material/Check: Calculo com base no ST (Contabilidade)")
     elif total_nf==soma_itens:
@@ -298,7 +335,7 @@ if uploaded_file:
         st.metric(
             "Valor Total Calculado",
             f"R$ {Valor_Total_Somado:,.2f}".replace(",","x").replace(".",",").replace("x","."),
-            delta=Valor_Total_Somado-total_nf
+            delta=f"R$ {Valor_Total_Somado-total_nf:.2f}",
         )
         st.space()
         if imposto_somado>0:
@@ -359,10 +396,9 @@ if uploaded_file:
             for pgto in pgto["detPag"]:
                 if pgto["tPag"]=="15":
                     st.markdown(f"Boleto: R$: {pgto["vPag"]}")
-        else:
-        
+        else:  
             forma_pgto = pgto["detPag"]["tPag"]
-            forma_pgto
+            "forma_pgto: ",forma_pgto
             valor_pgto = float(pgto["detPag"]["vPag"])
             if forma_pgto =="16":
                 st.markdown(f"## :material/Payments: Depósito Bancário")

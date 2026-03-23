@@ -13,7 +13,7 @@ def abrir_arquivo_txt(arquivo, colunas=None):
     except Exception as e:
         st.error(f"Erro ao ler arquivo {e}")
         st.stop()
-@st.cache_data(ttl=120)
+@st.cache_data(ttl=120, scope="session")
 def carregar_dados_onedrive(input_texto):
     with st.spinner("Pegando Arquivos txt...",show_time=True):
         try:

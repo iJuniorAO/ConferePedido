@@ -13,6 +13,7 @@ def abrir_arquivo_txt(arquivo, colunas=None):
     except Exception as e:
         st.error(f"Erro ao ler arquivo {e}")
         st.stop()
+@st.cache_data(ttl=7200, show_spinner=True, scope="session")
 def carregar_dados_onedrive(input_texto):
     with st.spinner("Pegando Arquivos txt...",show_time=True):
         try:
@@ -92,7 +93,7 @@ st.set_page_config(
 st.title(":material/Attach_File: Editor de :red[Lista]")
 
 # --- LAYOUT PAGINA
-bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?")
+bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
 if bd_automatico:
     f_produto_auto = carregar_dados_onedrive(link_produto)
     f_extra_auto = carregar_dados_onedrive(link_produto_extra)

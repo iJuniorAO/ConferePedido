@@ -14,7 +14,7 @@ def abrir_arquivo_txt(arquivo, colunas=None):
     except Exception as e:
         st.error(f"Erro ao ler arquivo {e}")
         st.stop()
-@st.cache_data(ttl=7200, show_spinner=True)
+@st.cache_data(ttl=7200, show_spinner=True, scope="session")
 def carregar_dados_onedrive(input_texto):
     try:
         # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
