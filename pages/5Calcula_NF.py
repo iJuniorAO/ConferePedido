@@ -376,7 +376,7 @@ if uploaded_file:
         st.divider()
         meio_pgto = resposta_xml["pgto"]["meio_pgto"]
         valor_pgto = resposta_xml["pgto"]["valor_pgto"]
-        st.markdown(f"## :material/Payments: {meio_pagamento.get(meio_pgto,f"Cod.: {meio_pgto} - Não Encontrado")}")
+        st.markdown(f"## :material/Payments: {meio_pagamento.get(meio_pgto,f"Cod.: {meio_pgto} - :red[Não Encontrado]")}")
         if not resposta_xml["Boletos"]:
             st.markdown(f"## :red[:material/Money_Off: Sem Detalhes de Vencimento do Boleto]")        
 
