@@ -13,7 +13,8 @@ def processa_XML(xml_file):
     info_nfe = data['nfeProc']['NFe']['infNFe']
     detalhes = info_nfe['det']
     total = info_nfe['total']
-    emitente=info_nfe["emit"]
+    emitente = info_nfe["emit"]
+    det_pag = info_nfe["pag"]["detPag"]
 
     if not isinstance(detalhes, list):
         detalhes = [detalhes]
@@ -36,10 +37,14 @@ def processa_XML(xml_file):
         Boletos = info_nfe["cobr"].get("dup",0)
     else:
         Boletos=0
-    
-    meio_pgto = info_nfe["pag"]["detPag"]["tPag"]
-    valor_pgto = float(info_nfe["pag"]["detPag"]["vPag"])
 
+    if isinstance(det_pag,dict):
+        meio_pgto = det_pag["tPag"]
+        valor_pgto = float(det_pag["vPag"])
+    else:   # Senão == lista 
+        meio_pgto = det_pag[0]["tPag"]
+        valor_pgto = sum([float(x["vPag"]) for x in det_pag])        
+        
 
     lista_produtos = []
     soma_produtos = 0
