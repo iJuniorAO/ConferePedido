@@ -189,19 +189,28 @@ def calculos(df, vl_total_nf, outras_despesas,emitente, fator_conversao, unidade
         df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
 
     linhas_com_guia = df[df["ICMS_CST"].isin(["00", "20"]) & (df["CEST"] != "")]
-    if (not linhas_com_guia.empty) or emitente["emitente_uf"]!="MG":
+
+
+    if (not linhas_com_guia.empty):
+        st.markdown("### Informe Calculo GUIA ST :blue[Contabilidade]")
         if st.toggle("Já possuo retorno da contabilidade"):
-            st.markdown("### Informe Calculo ST :blue[Contabilidade]")
+            st.markdown("### Informe Calculo GUIA ST :blue[Contabilidade]")
 
             guia_st = solicita_guia(linhas_com_guia)
             df = df.merge(guia_st,how="left")
         else:
-            if not linhas_com_guia.empty:
-                st.error(f"Contactar Contabilidade - Possui itens com CEST")
-                st.stop()        
-            else:
-                st.error(f"Contactar Contabilidade - Fornecedor fora de MG")
-                st.stop()        
+            st.error(f"Contactar Contabilidade - Possui itens com CEST")
+            st.stop()        
+
+    if emitente["emitente_uf"]!="MG":
+        if st.toggle("Já possuo retorno da contabilidade"):
+            st.markdown("### Informe Calculo ST :blue[Contabilidade]")
+
+            guia_st = solicita_guia(df)
+            df = df.merge(guia_st,how="left")
+        else:
+            st.error(f"Contactar Contabilidade - Fornecedor fora de MG")
+            st.stop()        
 
     else:
         df["Valor Guia"]=0.0
@@ -367,7 +376,7 @@ if uploaded_file:
         st.divider()
         meio_pgto = resposta_xml["pgto"]["meio_pgto"]
         valor_pgto = resposta_xml["pgto"]["valor_pgto"]
-        st.markdown(f"## :material/Payments: {meio_pagamento[meio_pgto]}")
+        st.markdown(f"## :material/Payments: {meio_pagamento.get(meio_pgto,f"Cod.: {meio_pgto} - Não Encontrado")}")
         if not resposta_xml["Boletos"]:
             st.markdown(f"## :red[:material/Money_Off: Sem Detalhes de Vencimento do Boleto]")        
 
