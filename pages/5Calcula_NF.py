@@ -473,8 +473,9 @@ if uploaded_file:
     df_log.index=resposta_xml["df"]["Item"]
     st.space()
     df_log["Qt por Cx"]=""
-    df_log['Qtd Contada'] = ""
+    df_log['Qtd Cx Contada'] = ""
     df_log['Data Validade'] = ""
+    df_log['Qtd Palete'] = ''
     if selecao_conf_cega: # tabela
         st.table(
             df_log,
