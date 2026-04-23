@@ -157,11 +157,13 @@ def processar_pedidos(df, df_extra, df_Pedido_Loja):
         ]
     df["TIPO"] = np.select(CONDICOES, ["PESO", "CONG"], default="SECO")
 
-    ultimo = df["Descricao"].astype(str).str.split().str[-1]
-    df["CONV"] = np.where(ultimo.str.isdigit(), ultimo, 1).astype(float)
+
+    # ultimo = df["Descricao"].astype(str).str.split().str[-1]
+    # df["CONV"] = np.where(ultimo.str.isdigit(), ultimo, 1).astype(float)
     df["Codigo"] = df["CodProduto"].astype(str).str.rjust(13)
     
-    df_base = df[["Codigo", "Descricao", "TIPO", "CONV"]].copy()
+    # df_base = df[["Codigo", "Descricao", "TIPO", "CONV"]].copy()
+    df_base = df[["Codigo", "Descricao", "TIPO"]].copy()
 
     df_Pedido_Final = df_base.merge(
         df_Pedido_Loja[["QtCx", "Descricao"]],
@@ -172,6 +174,14 @@ def processar_pedidos(df, df_extra, df_Pedido_Loja):
 
     df_Erro_Desc = df_Pedido_Final[df_Pedido_Final["_merge"] == "right_only"].copy()
     df_Pedido_Final = df_Pedido_Final[df_Pedido_Final["QtCx"].notna()].copy()
+
+
+    df_Pedido_Final['Descricao'] = df_Pedido_Final['Descricao'].astype(str).str.replace(',','.')
+    
+    ultimo = df_Pedido_Final["Descricao"].astype(str).str.split().str[-1]
+    ultimo_numerico = pd.to_numeric(ultimo, errors='coerce')
+    df_Pedido_Final["CONV"] = ultimo_numerico.fillna(1).astype(float)
+    
     df_Pedido_Final["TOTAL"] = df_Pedido_Final["QtCx"] * df_Pedido_Final["CONV"]
 
     df_Pedido_Final["VALOR_STR"] = df_Pedido_Final["TOTAL"].apply(
