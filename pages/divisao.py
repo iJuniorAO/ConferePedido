@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import re
 import io
-import requests
 from bancoDados import inicia_conexao_bancoDados, obter_lojas
 from utils import carregar_dados_onedrive, abrir_arquivo_txt, validar_acesso
 
@@ -95,6 +93,26 @@ def extrai_qt_TXT(df):
             saida[col] = df[["CodProduto", nome_qt_txt]].rename(columns={"CodProduto": "Codigo", nome_qt_txt: "Valor"})
 
     return saida
+
+def criar_downloads_por_categoria(df_txt_dict, categoria):
+    if not df_txt_dict:
+        return
+
+    st.markdown(f'### :blue[{categoria}]', text_alignment='center')
+    for loja, df_loja in df_txt_dict.items():
+        output = io.StringIO()
+        df_loja.to_csv(output, sep="\t", index=False, header=False)
+
+        loja_nome = loja.split('_')[0]
+        col1, col2 = st.columns(2, vertical_alignment='center')
+        col1.markdown(loja_nome)
+        col2.download_button(
+            label=f":material/Download: Baixar",
+            data=output.getvalue(),
+            file_name=f"{loja}_{categoria}.txt",
+            mime="text/plain",
+            key=f'{categoria}_{loja}'
+        )
 
 supabase = inicia_conexao_bancoDados()
 todas_lojas = obter_lojas(supabase)
@@ -335,61 +353,9 @@ if (f_produto and f_extra) or desativa_manual:
     st.markdown("# DIVISÃO TXT", text_alignment='center')
     col_txt_seco, col_txt_cong, col_txt_peso = st.columns(3, gap='medium')
 
-    output = io.StringIO()
     with col_txt_seco:
-
-        st.markdown('### :blue[SECO]', text_alignment='center')
-        for loja in df_txt_seco.keys():
-            df_txt_seco[loja].to_csv(output, sep="\t", index=False, header=False)
-            
-            secoCol1, secoCol2 = st.columns(2, vertical_alignment='center')
-            secoCol1.markdown(loja.split('_')[0])
-            
-
-            secoCol2.download_button(
-            label=f":material/Download: Baixar",
-            data=output.getvalue(),
-            file_name=f"{loja}_SECO.txt",
-            mime="text/plain",
-            key=f'SECO_{loja}'
-            )
-    output = io.StringIO()
+        criar_downloads_por_categoria(df_txt_seco, 'SECO')
     with col_txt_cong:
-        st.markdown('### :blue[CONGELADO/REFRIGERADO]', text_alignment='center')
-        for loja in df_txt_cong.keys():
-            df_txt_cong[loja].to_csv(output, sep="\t", index=False, header=False)
-            
-            congCol1, congCol2 = st.columns(2, vertical_alignment='center')
-            congCol1.markdown(loja.split('_')[0])
-
-            congCol2.download_button(
-            label=f":material/Download: Baixar",
-            data=output.getvalue(),
-            file_name=f"{loja}_CONG.txt",
-            mime="text/plain",
-            key=f'CONG_{loja}'
-            )
-    output = io.StringIO()
+        criar_downloads_por_categoria(df_txt_cong, 'CONG')
     with col_txt_peso:
-        st.markdown('### :blue[PESO]', text_alignment='center')
-        for loja in df_txt_peso.keys():
-            df_txt_cong[loja].to_csv(output, sep="\t", index=False, header=False)
-
-            pesoCol1, pesoCol2 = st.columns(2, vertical_alignment='center')
-            pesoCol1.markdown(loja.split('_')[0])
-
-            pesoCol2.download_button(
-            label=f":material/Download: Baixar",
-            data=output.getvalue(),
-            file_name=f"{loja}_PESO.txt",
-            mime="text/plain",
-            key=f'PESO_{loja}',
-            )
-
-    st.divider()    
-else:
-    st.info("Insira _'00001produto.txt'_ e _'00001produtoextra.txt'_ para começar a edição")
-
-#   --- SIDEBAR
-with st.sidebar:
-    st.write(f"Produtos cadastrados: :blue[{produtos_cadastrados}]")
+        criar_downloads_por_categoria(df_txt_peso, 'PESO')
