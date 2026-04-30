@@ -32,41 +32,31 @@ def trata_df(resposta, df_produtos):    # irá mesclear a resposta da funçaõ d
 
     return df_merge
 def distribuir_estoque_df(df_divisao, df_loja):
-
-    lista_resultados = []
+    df_loja = df_loja.copy().reset_index(drop=True)
+    df_loja['Loja'] = df_loja['filial'] + '_' + df_loja['cod_empresa']
+    df_loja['fator'] = df_loja['fator_porcentagem'] / 100
+    df_loja['store_order'] = df_loja.index
     
-    for _, prod in df_divisao.iterrows():
-        total_caixas = prod['Qt Cx']
-        cod_prod = prod['CodProduto']
-        erro_acumulado = 0.0
-        
-        for _, loja in df_loja.iterrows():
-            nome_loja = loja['filial']
-            cod_empresa = loja['cod_empresa']
-            cod_nome_loja = nome_loja+'_'+cod_empresa
+    df_final = (
+        df_divisao[['CodProduto', 'Qt Cx']]
+        .merge(df_loja[['store_order', 'Loja', 'fator']], how='cross')
+        .sort_values(['CodProduto', 'store_order'])
+    )
+    df_final['valor_ideal'] = df_final['Qt Cx'] * df_final['fator']
+    df_final['cumsum_ideal'] = df_final.groupby('CodProduto')['valor_ideal'].cumsum()
+    df_final['cumsum_rounded'] = df_final.groupby('CodProduto')['cumsum_ideal'].transform(lambda x: x.round())
+    df_final
+    df_final['Qt Cx'] = (
+        df_final['cumsum_rounded']
+        - df_final.groupby('CodProduto')['cumsum_rounded'].shift(fill_value=0)
+    ).astype(int)
+    df_final
+    df_final = df_final[['CodProduto', 'Loja', 'Qt Cx']]
 
-            fator = loja['fator_porcentagem'] / 100
-            
-            valor_ideal = (total_caixas * fator) + erro_acumulado            
-            valor_inteiro = round(valor_ideal)
-            erro_acumulado = valor_ideal - valor_inteiro
-            
-            # Armazena em formato de lista simples para criar o DataFrame
-            lista_resultados.append({
-                'CodProduto': cod_prod,
-                'Loja': cod_nome_loja,
-                'Qt Cx': valor_inteiro
-            })    
-    df_final = pd.DataFrame(lista_resultados)
-
-    
-    # Transforma o DataFrame: Linhas viram Produtos, Colunas viram Lojas
     df_pivoted = df_final.pivot(index='CodProduto', columns='Loja', values='Qt Cx')
 
-    # df_pivoted = df_final.pivot(index='CodProduto', columns=['Loja','CodLoja'], values='Qt Cx')
     df_pivoted['Total Distribuído'] = df_pivoted.sum(axis=1)
 
-    # Opcional: Remove o nome da coluna de índice para ficar mais limpo
     df_pivoted.columns.name = None
     df_pivoted = df_divisao[['CodProduto','Descricao','TIPO','Fator Conversao']].merge(df_pivoted,on='CodProduto')
     
@@ -283,6 +273,7 @@ if (f_produto and f_extra) or desativa_manual:
 
         itens_divisao = grid_divisao['selection']['rows']
         df_divisao = df.iloc[itens_divisao]
+
 
     if df_divisao.empty:
         st.error('Selecione ao menos 1 item para divisão')
