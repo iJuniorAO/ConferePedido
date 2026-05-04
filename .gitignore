@@ -1,4 +1,6 @@
 #ignorar config streamlit
 
 .streamlit/secrets.toml
-.__pycache__/
+__pycache__/
+pages/__pycache__/
+*.pyc
