@@ -84,20 +84,19 @@ def extrai_qt_TXT(df):
 
 def criar_downloads_por_categoria(df_txt_dict, categoria):
     if not df_txt_dict:
-        return
+        return st.info(f"Nenhum produto {categoria}")
 
     st.markdown(f'### :blue[{categoria}]', text_alignment='center')
     for loja, df_loja in df_txt_dict.items():
         output = io.StringIO()
         df_loja.to_csv(output, sep="\t", index=False, header=False)
-
         loja_nome = loja.split('_')[0]
         col1, col2 = st.columns(2, vertical_alignment='center')
         col1.markdown(loja_nome)
         col2.download_button(
             label=f":material/Download: Baixar",
             data=output.getvalue(),
-            file_name=f"{loja}_{categoria}.txt",
+            file_name=f"DIVISAO_{loja}_{categoria}.txt",
             mime="text/plain",
             key=f'{categoria}_{loja}'
         )
@@ -157,7 +156,7 @@ st.set_page_config(
     page_title="Fazer Pedidos",
     layout="wide")
 
-st.title(":material/Universal_Currency_Alt: LANÇA :red[DIVISÃO]")
+st.title(":material/Universal_Currency_Alt: LANÇA :blue[DIVISÃO]")
 
 # --- LAYOUT PAGINA
 bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
@@ -259,7 +258,8 @@ if (f_produto and f_extra) or desativa_manual:
 
     st.divider()
     st.markdown('## Selecione os Produtos para Divisão')
-    with st.expander('Todos os produtos',expanded=True):
+    with st.expander(':blue[:material/Edit:] produtos',expanded=True):
+        st.write('Selecione os produtos que farão parte da divisão: ')
         grid_divisao = st.dataframe(
             df[["CodProduto", "Descricao", "Fornecedor", "TIPO", 'Estoq']],
             selection_mode="multi-row",
@@ -306,21 +306,29 @@ if (f_produto and f_extra) or desativa_manual:
         st.stop()
 
     st.divider()
-    with st.expander('Conferir Divisão'):
-        st.markdown("# Divisão Todas Lojas (Qt Cx)")
+    with st.expander(':blue[:material/Visibility:] Conferir Divisão'):
         resposta = distribuir_estoque_df(df_editado,df_lojas)
-        resposta
 
         df_cong = resposta[resposta['TIPO'].isin(['CONG','REFR'])].copy()
         df_peso = resposta[resposta['TIPO'] == 'PESO'].copy()
         df_seco = resposta[resposta['TIPO'] == 'SECO']
         
-        st.markdown('### Separado por Grupo')
-        st.write('SECO')
-        df_seco
-        st.write('CONGELADO/REFRIGERADO')
-        df_cong
-        st.write('PESO')
+        st.markdown("# Todas Lojas (Qt Cx)")
+        resposta
+        
+        st.markdown('### Divisão :blue[SECO]')
+        if df_seco.empty:
+            st.info('Nenhum item SECO selecionado')
+        else:
+            df_seco
+        
+        st.markdown('### Divisão :blue[CONG/REFR]')
+        if df_cong.empty:
+            st.info('Nenhum item CONG/REFR selecionado')
+        else:
+            df_cong
+
+        st.markdown('### Divisão :blue[PESO]')
         if df_peso.empty:
             st.info('Nenhum item PESO selecionado')
         else:
