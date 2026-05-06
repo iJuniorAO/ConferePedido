@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import re
 import io
-import requests
 from bancoDados import inicia_conexao_bancoDados, obter_lojas
 from utils import carregar_dados_onedrive, abrir_arquivo_txt, validar_acesso
 
@@ -34,41 +32,29 @@ def trata_df(resposta, df_produtos):    # irá mesclear a resposta da funçaõ d
 
     return df_merge
 def distribuir_estoque_df(df_divisao, df_loja):
-
-    lista_resultados = []
+    df_loja = df_loja.copy().reset_index(drop=True)
+    df_loja['Loja'] = df_loja['filial'] + '_' + df_loja['cod_empresa']
+    df_loja['fator'] = df_loja['fator_porcentagem'] / 100
+    df_loja['store_order'] = df_loja.index
     
-    for _, prod in df_divisao.iterrows():
-        total_caixas = prod['Qt Cx']
-        cod_prod = prod['CodProduto']
-        erro_acumulado = 0.0
-        
-        for _, loja in df_loja.iterrows():
-            nome_loja = loja['filial']
-            cod_empresa = loja['cod_empresa']
-            cod_nome_loja = nome_loja+'_'+cod_empresa
+    df_final = (
+        df_divisao[['CodProduto', 'Qt Cx']]
+        .merge(df_loja[['store_order', 'Loja', 'fator']], how='cross')
+        .sort_values(['CodProduto', 'store_order'])
+    )
+    df_final['valor_ideal'] = df_final['Qt Cx'] * df_final['fator']
+    df_final['cumsum_ideal'] = df_final.groupby('CodProduto')['valor_ideal'].cumsum()
+    df_final['cumsum_rounded'] = df_final.groupby('CodProduto')['cumsum_ideal'].transform(lambda x: x.round())
+    df_final['Qt Cx'] = (
+        df_final['cumsum_rounded']
+        - df_final.groupby('CodProduto')['cumsum_rounded'].shift(fill_value=0)
+    ).astype(int)
+    df_final = df_final[['CodProduto', 'Loja', 'Qt Cx']]
 
-            fator = loja['fator_porcentagem'] / 100
-            
-            valor_ideal = (total_caixas * fator) + erro_acumulado            
-            valor_inteiro = round(valor_ideal)
-            erro_acumulado = valor_ideal - valor_inteiro
-            
-            # Armazena em formato de lista simples para criar o DataFrame
-            lista_resultados.append({
-                'CodProduto': cod_prod,
-                'Loja': cod_nome_loja,
-                'Qt Cx': valor_inteiro
-            })    
-    df_final = pd.DataFrame(lista_resultados)
-
-    
-    # Transforma o DataFrame: Linhas viram Produtos, Colunas viram Lojas
     df_pivoted = df_final.pivot(index='CodProduto', columns='Loja', values='Qt Cx')
 
-    # df_pivoted = df_final.pivot(index='CodProduto', columns=['Loja','CodLoja'], values='Qt Cx')
     df_pivoted['Total Distribuído'] = df_pivoted.sum(axis=1)
 
-    # Opcional: Remove o nome da coluna de índice para ficar mais limpo
     df_pivoted.columns.name = None
     df_pivoted = df_divisao[['CodProduto','Descricao','TIPO','Fator Conversao']].merge(df_pivoted,on='CodProduto')
     
@@ -95,6 +81,26 @@ def extrai_qt_TXT(df):
             saida[col] = df[["CodProduto", nome_qt_txt]].rename(columns={"CodProduto": "Codigo", nome_qt_txt: "Valor"})
 
     return saida
+
+def criar_downloads_por_categoria(df_txt_dict, categoria):
+    if not df_txt_dict:
+        return
+
+    st.markdown(f'### :blue[{categoria}]', text_alignment='center')
+    for loja, df_loja in df_txt_dict.items():
+        output = io.StringIO()
+        df_loja.to_csv(output, sep="\t", index=False, header=False)
+
+        loja_nome = loja.split('_')[0]
+        col1, col2 = st.columns(2, vertical_alignment='center')
+        col1.markdown(loja_nome)
+        col2.download_button(
+            label=f":material/Download: Baixar",
+            data=output.getvalue(),
+            file_name=f"{loja}_{categoria}.txt",
+            mime="text/plain",
+            key=f'{categoria}_{loja}'
+        )
 
 supabase = inicia_conexao_bancoDados()
 todas_lojas = obter_lojas(supabase)
@@ -332,61 +338,9 @@ if (f_produto and f_extra) or desativa_manual:
     st.markdown("# DIVISÃO TXT", text_alignment='center')
     col_txt_seco, col_txt_cong, col_txt_peso = st.columns(3, gap='medium')
 
-    output = io.StringIO()
     with col_txt_seco:
-
-        st.markdown('### :blue[SECO]', text_alignment='center')
-        for loja in df_txt_seco.keys():
-            df_txt_seco[loja].to_csv(output, sep="\t", index=False, header=False)
-            
-            secoCol1, secoCol2 = st.columns(2, vertical_alignment='center')
-            secoCol1.markdown(loja.split('_')[0])
-            
-
-            secoCol2.download_button(
-            label=f":material/Download: Baixar",
-            data=output.getvalue(),
-            file_name=f"{loja}_SECO.txt",
-            mime="text/plain",
-            key=f'SECO_{loja}'
-            )
-    output = io.StringIO()
+        criar_downloads_por_categoria(df_txt_seco, 'SECO')
     with col_txt_cong:
-        st.markdown('### :blue[CONGELADO/REFRIGERADO]', text_alignment='center')
-        for loja in df_txt_cong.keys():
-            df_txt_cong[loja].to_csv(output, sep="\t", index=False, header=False)
-            
-            congCol1, congCol2 = st.columns(2, vertical_alignment='center')
-            congCol1.markdown(loja.split('_')[0])
-
-            congCol2.download_button(
-            label=f":material/Download: Baixar",
-            data=output.getvalue(),
-            file_name=f"{loja}_CONG.txt",
-            mime="text/plain",
-            key=f'CONG_{loja}'
-            )
-    output = io.StringIO()
+        criar_downloads_por_categoria(df_txt_cong, 'CONG')
     with col_txt_peso:
-        st.markdown('### :blue[PESO]', text_alignment='center')
-        for loja in df_txt_peso.keys():
-            df_txt_cong[loja].to_csv(output, sep="\t", index=False, header=False)
-
-            pesoCol1, pesoCol2 = st.columns(2, vertical_alignment='center')
-            pesoCol1.markdown(loja.split('_')[0])
-
-            pesoCol2.download_button(
-            label=f":material/Download: Baixar",
-            data=output.getvalue(),
-            file_name=f"{loja}_PESO.txt",
-            mime="text/plain",
-            key=f'PESO_{loja}',
-            )
-
-    st.divider()    
-else:
-    st.info("Insira _'00001produto.txt'_ e _'00001produtoextra.txt'_ para começar a edição")
-
-#   --- SIDEBAR
-with st.sidebar:
-    st.write(f"Produtos cadastrados: :blue[{produtos_cadastrados}]")
+        criar_downloads_por_categoria(df_txt_peso, 'PESO')
