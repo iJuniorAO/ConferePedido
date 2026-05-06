@@ -8,7 +8,6 @@ from utils import carregar_dados_onedrive, abrir_arquivo_txt, validar_acesso
 if 'perfil' not in st.session_state:
     st.session_state.perfil = 'none'
 
-
 validar_acesso(['administrador', 'usuario'])
 
 def trata_df(resposta, df_produtos):    # irá mesclear a resposta da funçaõ distribuir_estoque com as demais descrições
@@ -246,16 +245,58 @@ if (f_produto and f_extra) or desativa_manual:
         st.stop()
 
     df_lojas = df_lojas[~df_lojas['grupo'].isin(['atacado','teste'])]
-    df_lojas_fatorZero = df_lojas[df_lojas['fator_porcentagem']<=0]
 
     
-    if not df_lojas_fatorZero.empty:
-        st.info(f'Há {len(df_lojas_fatorZero)} lojas sem fator de conversão (zerado)')
-        with st.expander('Mostrar lojas fator zerado'):
-            df_lojas_fatorZero
-    with st.expander('Mostrar lojas'):
-        df_lojas
+    
+    with st.expander(':blue[:material/settings:] Mostrar lojas'):
+        # df_lojas
 
+        st.title("Editar Fator de Divisão")
+
+        df_lojas['fator_porcentagem'] = df_lojas['fator_porcentagem'].astype(float)
+
+        df_lojas = st.data_editor(
+            df_lojas,
+            column_config={
+                "fator_porcentagem": st.column_config.NumberColumn(
+                    "fator_porcentagem",
+                    help="A soma total deve ser exatamente 100%",
+                    min_value=0.00,
+                    max_value=100.00,
+                    step=0.01,
+                    # format="%.2f%%",
+                )
+            },
+            num_rows="delete",
+            disabled=["cod_empresa", "filial", "razao_social", "cnpj", "grupo"],
+            hide_index=True,
+        )
+
+
+        # 2. Validação da Soma
+        soma_atual = df_lojas['fator_porcentagem'].sum()
+
+        st.metric("SOMA: fator conversão", f"{soma_atual:.2f}%")
+
+        st.bar_chart(df_lojas, x="filial", y="fator_porcentagem")
+        if round(soma_atual, 2) == 100.0:
+            st.success(":material/Check: Fator de Conversão correto (100%).")            
+        else:
+            diferenca = 100.0 - soma_atual
+            if diferenca<0:
+                st.error(f"Necessário subtrair: {diferenca:.2f}%")
+            else:
+                st.error(f"Necessário somar: {diferenca:.2f}%")
+            st.text("Ajuste os valores acima para prosseguir com a divisão.")
+            st.stop()
+
+    df_lojas_fatorZero = df_lojas[df_lojas['fator_porcentagem']<=0]
+    if not df_lojas_fatorZero.empty:
+        with st.expander('Mostrar lojas fator zerado'):
+            st.info(f'Há {len(df_lojas_fatorZero)} lojas sem fator de conversão (zerado)')
+            df_lojas_fatorZero
+    else:
+        st.success("Nenhuma loja com fator de conversão Zerado")
     st.divider()
     st.markdown('## Selecione os Produtos para Divisão')
     with st.expander(':blue[:material/Edit:] produtos',expanded=True):
