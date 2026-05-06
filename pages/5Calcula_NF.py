@@ -454,19 +454,32 @@ if uploaded_file:
         )
     st.divider()
     selecao_conf_cega = st.toggle("Ocultar bordas")
-    st.markdown("# :material/Package: Logística: Conferência Cega")
-    st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
-    colun1, colun2, colun3, colun4, colun5 = st.columns(5)
+    coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
+    with coluna1:
+        st.markdown("## :material/Package: Logística: Conferência Cega")
+    with coluna2:
+        st.write("Conferido por: _________________")
+    st.markdown(f"##### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
+    colun1, colun2, colun3, colun4 = st.columns(4, vertical_alignment="center")
     with colun1:
         st.write(r"______ / ______")
+        st.markdown(":_____________ Ordem")
     with colun2:
-        st.markdown(":________ Ordem Liberação")
+        st.checkbox('Descarga Normal')
+        st.checkbox('Descarga Isenta')
+    #     st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
     with colun3:
-        st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
-    with colun4:
-        st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
-    with colun5:
+        st.checkbox('Descarga Fixa')
+        # st.markdown("Descarga Fixa")
         st.markdown("R$:_________________")
+        # st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
+    with colun4:
+    # with colun5:
+        # subcol1, subcol2 = st.columns(2, vertical_alignment="center")
+        # subcol1.checkbox('Lista')
+        # subcol2.checkbox('Divisão')
+        st.checkbox('Lista')
+        st.checkbox('Divisão')
 
     df_log = resposta_xml["df"][["Codigo Fornecedor",'Descrição']].copy()
     df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
