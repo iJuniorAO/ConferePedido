@@ -169,13 +169,11 @@ with col3:
 if f_cod_filtro:
     st.info("Filtro Ativado")
 
-c1, c2 = st.columns(2)
-with c1:
-    st.markdown("### :material/Toggle_On: Excessões: O que retirar da lista")
-    ind_div = st.checkbox("[:material/Safety_Divider:]  Divisão")
-with c2:
-    st.markdown("### :material/Toggle_On: Filtro")
-    ind_grupo = st.pills(":material/Group_Work: Grupo", options=GRUPO, selection_mode="multi",default=GRUPO)
+
+st.markdown("### :material/Toggle_On: Filtro:")
+ignora_negativo = st.checkbox(':material/Package: Estoque Negativo', value=True)
+# ind_div = st.checkbox(":material/Safety_Divider: Divisão")
+ind_grupo = st.pills(":material/Group_Work: Grupo", options=GRUPO, selection_mode="multi",default=GRUPO)
 st.divider()
 
 if (f_produto and f_extra) or desativa_manual:
@@ -213,11 +211,10 @@ if (f_produto and f_extra) or desativa_manual:
     df.loc[df["ListaCodCaract"].astype(str).str.contains("000002"), "TIPO"] = "PESO"
     
     #   2. FILTRO DATAFRAME
-    df = df[df["Estoq"] > 0].copy()
-    #filtro divisão
-    if ind_div:
-        df = df[df["Fam"] != 900000008].copy()
-    #filtro grupo
+    if not ignora_negativo:
+        df = df[df["Estoq"] > 0].copy()
+    # if ind_div:
+    #     df = df[df["Fam"] != 900000008].copy()
     df = df[df["TIPO"].isin(ind_grupo)].copy()
 
     #   --- MOSTRAR INFORMAÇÕES
