@@ -429,20 +429,20 @@ if uploaded_file:
 
             st.divider()
 
-        st.markdown(f"### Emitente: :blue[{resposta_xml["emitente"]['emitente_fantasia']}] - {resposta_xml["emitente"]["emitente_nome"]}")
-        st.markdown(f"#### Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
         st.markdown("## :material/Post: Relatório para Compras")
+        st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]['emitente_fantasia']}] - {resposta_xml["emitente"]["emitente_nome"]}")
+        st.markdown(f" Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
 
-        df_calc["Qt por Cx"] = df_calc["Qt un"]/df_calc["Qt Cx"]
+        df_calc["Un por Cx"] = df_calc["Qt un"]/df_calc["Qt Cx"]
 
         if df_calc["Valor Guia"].sum()>0:            
-            df_dir = df_calc[['Item', 'Descrição', 'Qt Cx', "Qt por Cx", 'Valor Total',"Valor Guia", 'Valor un']]
+            df_dir = df_calc[['Item', 'Descrição', 'Qt Cx', "Un por Cx", 'Valor Total',"Valor Guia", 'Valor un']]
         else:
-            df_dir = df_calc[['Item', 'Descrição', 'Qt Cx', "Qt por Cx", 'Valor Total', 'Valor un']]
+            df_dir = df_calc[['Item', 'Descrição', 'Qt Cx', "Un por Cx", 'Valor Total', 'Valor un']]
         
         st.dataframe(
             df_dir.style.format({
-                "Qt por Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
+                "Un por Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
                 "Qt Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
                 "Valor Total": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
                 "Valor Guia": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
@@ -453,39 +453,28 @@ if uploaded_file:
             height="content"
         )
     st.divider()
-    selecao_conf_cega = st.toggle("Ocultar bordas")
-    coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
-    with coluna1:
-        st.markdown("## :material/Package: Logística: Conferência Cega")
-    with coluna2:
-        st.write("Conferido por: _________________")
-    st.markdown(f"##### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
-    colun1, colun2, colun3, colun4 = st.columns(4, vertical_alignment="center")
+    selecao_conf_cega = st.toggle("Layout Secundário")
+    st.markdown("## :material/Package: Logística: Conferência Cega")
+    st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
+    st.markdown(f"Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
+
+    colun1, colun2, colun3, colun4, colun5 = st.columns(5)
     with colun1:
         st.write(r"______ / ______")
-        st.markdown(":_____________ Ordem")
     with colun2:
-        st.checkbox('Descarga Normal')
-        st.checkbox('Descarga Isenta')
-    #     st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
+        st.markdown(":________ Ordem Liberação")
     with colun3:
-        st.checkbox('Descarga Fixa')
-        # st.markdown("Descarga Fixa")
-        st.markdown("R$:_________________")
-        # st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
+        st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
     with colun4:
-    # with colun5:
-        # subcol1, subcol2 = st.columns(2, vertical_alignment="center")
-        # subcol1.checkbox('Lista')
-        # subcol2.checkbox('Divisão')
-        st.checkbox('Lista')
-        st.checkbox('Divisão')
+        st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
+    with colun5:
+        st.markdown("R$:_________________")
 
     df_log = resposta_xml["df"][["Codigo Fornecedor",'Descrição']].copy()
     df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
     df_log.index=resposta_xml["df"]["Item"]
     st.space()
-    df_log["Qt por Cx"]=""
+    df_log["Un por Cx"]=""
     df_log['Qtd Cx Contada'] = ""
     df_log['Data Validade'] = ""
     df_log['Qtd Palete'] = ''
