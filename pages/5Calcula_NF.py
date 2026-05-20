@@ -113,29 +113,35 @@ def processa_XML(xml_file):
         "pgto": pgto,
         "outras_despesas": outras_despesas
     }
+
 def extrair_inteiro_unidade(texto_unidade):
     numeros = re.findall(r'\d+', str(texto_unidade))
     if numeros:
         return int("".join(numeros))
     return 1 # Retorna 1 se for apenas 'un' ou 'cx' sem número
-def define_fator_conversao(df):
-    st.markdown("### Informe o :blue[Fator de Conversão]")    
-    if df["Ucom"].isin(["cx"]).all():
-        escolha_conversao = "CX/FD"
-    elif df["Ucom"].isin(["un"]).all():
-        escolha_conversao = "UN"    
-    else:
-        if "kg" in df["Ucom"].values:
-            st.warning("Fator de Conversão tem KG")
-        escolha_conversao = st.segmented_control(
-            "Informar Unidade de Compra",
-            ["CX/FD", "UN"],
-            width="stretch",
-        )
-    if escolha_conversao==None:
-        st.error("Selecione um fator de conversão")
-        return 0,0
 
+def encontra_un_compra(df):
+    if df["Ucom"].isin(["cx","fd","frd"]).all():
+        return "CX/FD"
+    elif df["Ucom"].isin(["un"]).all():
+        return "UN"
+    elif df["Ucom"].isin(["kg"]).all():
+        return "KG"
+    
+    return ""    
+
+def define_un_compra(df):
+    if "kg" in df["Ucom"].values:
+        st.warning("Fator de Conversão tem KG")
+    escolha_conversao = st.segmented_control(
+            "Informar Unidade de Compra",
+            ["CX/FD", "UN", "KG"],
+            default=None,
+            width="stretch",
+    )
+    return escolha_conversao
+
+def define_fator_conversao(df):
     fator_conversao = df[["Descrição", "ICMS_CST", "CEST"]].copy()
     fator_conversao["Fator de Conversão"] = 0
     st.caption("Digitar :red[**SOMENTE**] números")
@@ -146,26 +152,24 @@ def define_fator_conversao(df):
         hide_index=True,
         height="content",
     )
-    if 0 in fator_conversao["Fator de Conversão"].values:
-        st.error("Não pode haver fator de conversão: 0 - 'Zero'")
-        return 0,0
     fator_conversao = fator_conversao["Fator de Conversão"]
-    return fator_conversao, escolha_conversao
+    return fator_conversao
+
 def calculos(df, vl_total_nf, outras_despesas,emitente, fator_conversao, unidade_compra, ignora_impostos, df_bon=""):
     def define_cx_un():
-        if unidade_compra=="UN":
+        if (unidade_compra=="UN") or (unidade_compra=="KG"):
             df["Qt un"] = df["qt_Com"]
-            df["Qt Cx"] = df["Qt un"] / fator_conversao
+            df["Qt de Cx"] = df["Qt un"] / fator_conversao
             if uploaded_file_2:
                 df_bon["Qt un"] = df_bon["qt_Com"]
-                df_bon["Qt Cx"] = df_bon["Qt un"] / fator_conversao
+                df_bon["Qt de Cx"] = df_bon["Qt un"] / fator_conversao
             return df
         elif unidade_compra=="CX/FD":
-            df["Qt Cx"] = df["qt_Com"]
-            df["Qt un"] = df["Qt Cx"] * fator_conversao
+            df["Qt de Cx"] = df["qt_Com"]
+            df["Qt un"] = df["Qt de Cx"] * fator_conversao
             if uploaded_file_2:
-                df_bon["Qt Cx"] = df_bon["qt_Com"]
-                df_bon["Qt un"] = df_bon["Qt Cx"] * fator_conversao
+                df_bon["Qt de Cx"] = df_bon["qt_Com"]
+                df_bon["Qt un"] = df_bon["Qt de Cx"] * fator_conversao
         return df
     def solicita_guia(df):
         guia_ST = df[["Descrição"]].copy()
@@ -176,49 +180,42 @@ def calculos(df, vl_total_nf, outras_despesas,emitente, fator_conversao, unidade
             hide_index=True,
             disabled=["Descrição"]
         )
-        if 0 in guia_ST.values:
-            st.error("Guia ST tem valores zerados!")
-            st.stop()
         return guia_ST
 
     df["Valor Outras Despesas"] = (df["Valor Original"]/df["Valor Original"].sum())*outras_despesas
+    df["Valor Guia"] = 0
 
     df = define_cx_un()
 
     if uploaded_file_2:
-        df_bon["Qt Cx Bon"] = df_bon["Qt Cx"]*desconsidera_bonificacao
+        df_bon["Qt de Cx Bon"] = df_bon["Qt de Cx"]*desconsidera_bonificacao
         df_bon["Qt un Bon"] = df_bon["Qt un"]*desconsidera_bonificacao
 
-        df=df.merge(df_bon[["Descrição", "Qt Cx Bon", "Qt un Bon"]],how="left")
-        df["Qt Cx"] = df["Qt Cx Bon"].fillna(0) + df["Qt Cx"]
+        df=df.merge(df_bon[["Descrição", "Qt de Cx Bon", "Qt un Bon"]],how="left")
+        df["Qt de Cx"] = df["Qt de Cx Bon"].fillna(0) + df["Qt de Cx"]
         df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
 
-    linhas_com_guia = df[df["ICMS_CST"].isin(["00", "20"]) & (df["CEST"] != "")]
-
+    # Regra de negocio
+    # Guia se ICMS-ST for 00 ou 20
+    linhas_com_guia = df[df["ICMS_CST"].isin(["00", "20"])]
 
     if (not linhas_com_guia.empty):
-        st.markdown("### Informe Calculo GUIA ST :blue[Contabilidade]")
+        st.markdown("#### Solicitar Calculo GUIA ST :blue[Contabilidade]")
+        st.text("Foi verificado que na NFe possui item com ICMS ST 00 ou 20")
+        if emitente["emitente_uf"]!="MG":
+            st.error("Fornecedor fora de Minas")
         if st.toggle("Já possuo retorno da contabilidade"):
-            st.markdown("### Informe Calculo GUIA ST :blue[Contabilidade]")
-
+            st.markdown("#### Informe Valor da :blue[GUIA ST]")
             guia_st = solicita_guia(linhas_com_guia)
+            st.caption("Para seguir sem calcular a guia, insira Valor da Guia qualquer número abaixo de 0,01 | :blue[Ex.: R$ 0,00000001]")
+            if 0 in guia_st.values:
+                st.error("Guia ST tem valores zerados!")
+                st.stop()
             df = df.merge(guia_st,how="left")
         else:
-            st.error(f"Contactar Contabilidade - Possui itens com CEST")
+            st.info(f"Contactar Contabilidade")
             st.stop()        
 
-    if emitente["emitente_uf"]!="MG":
-        if st.toggle("Já possuo retorno da contabilidade"):
-            st.markdown("### Informe Calculo ST :blue[Contabilidade]")
-
-            guia_st = solicita_guia(df)
-            df = df.merge(guia_st,how="left")
-        else:
-            st.error(f"Contactar Contabilidade - Fornecedor fora de MG")
-            st.stop()        
-
-    else:
-        df["Valor Guia"]=0.0
     
     if ignora_impostos:
         df["Valor Total"] = df["Valor Original"]
@@ -227,7 +224,7 @@ def calculos(df, vl_total_nf, outras_despesas,emitente, fator_conversao, unidade
         df["Valor Total"] = df["Valor Original"] + df["V_ST"] + df["V_IPI"] + df["Valor Guia"] + df["Valor Outras Despesas"] + df["V_FCPST"] - df["Valor Desconto"]
         total_impostos = df["V_ST"].sum()+df["V_IPI"].sum()+df["Valor Guia"].sum()-df["Valor Desconto"].sum()
     
-    df["Valor Cx"] = df["Valor Total"] / df["Qt Cx"]
+    df["Valor Cx"] = df["Valor Total"] / df["Qt de Cx"]
     df["Valor un"] = df["Valor Total"] / df["Qt un"]
 
     valor_total_calculado = round(df["Valor Total"].sum(),2)
@@ -238,6 +235,7 @@ def calculos(df, vl_total_nf, outras_despesas,emitente, fator_conversao, unidade
         "valor_total_calculado":valor_total_calculado,
     }
     #return df, df_bon, total_impostos, total_Valor_Total
+
 def valida_calculo():
     if df_calc["Valor Guia"].sum():
         return st.error(":material/Check: Possui GUIA a ser paga")
@@ -301,210 +299,238 @@ with c1:
     uploaded_file = st.file_uploader("COMPRA - Arraste o XML da nota fiscal aqui", type="xml")
 with c2:
     uploaded_file_2 = st.file_uploader("BONIFICAÇÃO - Arraste o XML da nota fiscal aqui", type="xml", disabled=True)
-st.divider()
-if uploaded_file:
-    resposta_xml = processa_XML(uploaded_file)
-    fator_conversao, unidade_compra = define_fator_conversao(resposta_xml["df"])
+if (not uploaded_file):
+    st.info("Insira o XML para iniciar o calculo")
+    st.divider()
+    st.stop()
+resposta_xml = processa_XML(uploaded_file)
 
+st.markdown("## :material/Input: Informações")
+
+st.markdown("#### 1. Selecionar :blue[Unidade de Compra]")
+unidade_compra = encontra_un_compra(resposta_xml["df"])
+if (not unidade_compra):
+    unidade_compra = define_un_compra(resposta_xml["df"])
+else:
+    st.success("Unidade de Compra [cx ou un] encontrado automaticamente")
+if (not unidade_compra):
+    st.error("Necessário escolher fator de conversão")
+    st.stop()
+
+st.space()
+st.markdown("#### 2. Informe se irá :blue[Ignorar Imposto] - Desconto em Boleto")
+if resposta_xml["emitente"]["emitente_fantasia"] in desconto_boleto_padrao:
+    st.caption(f"Fornecedor: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] | Desconto em boleto padrão - Ignora imposto ativado")
+    ignora_impostos=True
+else:
+    ignora_impostos=False
+ignora_impostos = st.toggle("Não considerar imposto ST (desconto em boleto)", value=ignora_impostos)
+
+st.space()
+st.markdown("#### 3. Informe o :blue[Fator de Conversão]")
+fator_conversao = define_fator_conversao(resposta_xml["df"])
+if (0 in fator_conversao.values):
+    st.error("Não pode haver fator de conversão: 'Zero'")
+    st.stop()
+
+if uploaded_file_2:
     if uploaded_file_2:
-        if uploaded_file_2:
-            
-            resposta_xml_bon  = processa_XML(uploaded_file_2)
-            if resposta_xml["emitente_nome"] != resposta_xml_bon["emitente_nome"]:
-                st.error("NFs possuem emitente divergente")
-                st.stop()
-            if resposta_xml["Nr_Nfe"]==resposta_xml_bon["Nr_Nfe"]:
-                st.error("Nº NF BONIFICAÇÃO não pode ser o mesmo da NF COMPRA")
-                st.stop()
-            if desconsidera_bonificacao==100:
-                st.error(":material/Close: Não é possível calcular bonificação ignorando 100% da bonificação")
-                st.markdown("Valor padrão 10%")
-                st.stop()
-
-        else:
-            st.error(":material/Close: Insira o XML da bonificação")
+        
+        resposta_xml_bon  = processa_XML(uploaded_file_2)
+        if resposta_xml["emitente_nome"] != resposta_xml_bon["emitente_nome"]:
+            st.error("NFs possuem emitente divergente")
             st.stop()
-    st.divider()
+        if resposta_xml["Nr_Nfe"]==resposta_xml_bon["Nr_Nfe"]:
+            st.error("Nº NF BONIFICAÇÃO não pode ser o mesmo da NF COMPRA")
+            st.stop()
+        if desconsidera_bonificacao==100:
+            st.error(":material/Close: Não é possível calcular bonificação ignorando 100% da bonificação")
+            st.markdown("Valor padrão 10%")
+            st.stop()
 
-    if resposta_xml["emitente"]["emitente_fantasia"] in desconto_boleto_padrao:
-        ignora_impostos=True
     else:
-        ignora_impostos=False
-    ignora_impostos = st.toggle("Não considerar imposto ST (desconto em boleto)", value=ignora_impostos)
+        st.error(":material/Close: Insira o XML da bonificação")
+        st.stop()
+else:
+    resposta_calc = calculos(resposta_xml["df"], resposta_xml["total_nf"], resposta_xml["outras_despesas"], resposta_xml["emitente"], fator_conversao, unidade_compra, ignora_impostos, None)
 
-    if not isinstance(fator_conversao,int):
-        if not uploaded_file_2:
-            resposta_calc = calculos(resposta_xml["df"], resposta_xml["total_nf"], resposta_xml["outras_despesas"], resposta_xml["emitente"], fator_conversao, unidade_compra, ignora_impostos, None)
-        # else:
-        #     df_calculado, df_calculado_bon, imposto_somado, Valor_Total_Somado = calculos(resposta_xml["df"], resposta_xml["total_nf"], fator_conversao, ignora_impostos,df_bon)
-        calc_vl_total_calculado = resposta_calc["valor_total_calculado"]
-        df_calc = resposta_calc["df_calc"]
-        st.divider()
-        
-        st.markdown("## :material/Functions: Informações Gerais")
-        with st.expander("Mostrar detalhes do calculo",icon=":material/function:"):
-            st.dataframe(
-                resposta_xml["df"].drop(columns=["Codigo Fornecedor","Qt un","Qt Cx"])
-            )
+calc_vl_total_calculado = resposta_calc["valor_total_calculado"]
+df_calc = resposta_calc["df_calc"]
 
 
-        diferenca_nf_total_calculado = calc_vl_total_calculado-resposta_xml["soma_produtos"]
-        valida_calculo()
+st.divider()
+st.markdown("## :material/Functions: Informações Gerais")
+with st.expander("Mostrar detalhes do calculo",icon=":material/function:"):
+    st.dataframe(
+        resposta_xml["df"],
+        column_order= ['Item', 'Descrição', 'ICMS_CST', 'CEST',
+            'Valor Original', 'V_ST', 'V_IPI', 'V_FCPST', 'Valor Guia', 'Valor Outras Despesas',
+            'Valor Desconto', 'Valor Total',
+            'Ucom', 'qt_Com', 'Qt de Cx', 'Qt un',
+            'Valor Cx', 'Valor un']                        
+    )
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric(
-                "Valor Total da Nota (campo total)",
-                f"R$ {resposta_xml["total_nf"]:,.2f}".replace(",","x").replace(".",",").replace("x",".")
-            )
-            st.space()
-            st.metric(
-                "Valor Total dos Produtos",
-                f"R$ {resposta_xml["soma_produtos"]:,.2f}".replace(",","x").replace(".",",").replace("x","."),
-            )
-        with col2:
-            st.metric(
-                "Valor Total Calculado",
-                f"R$ {calc_vl_total_calculado:,.2f}".replace(",","x").replace(".",",").replace("x","."),
-            )
-            st.space()
-            if diferenca_nf_total_calculado>0:
-                st.metric(":red[**Imposto Somado**]", f"R$ {abs(diferenca_nf_total_calculado):,.2f}")
-            elif calc_vl_total_calculado == resposta_xml["total_nf"]:
-                st.metric(":green[**Sem Guia**]", f"R$ {abs(diferenca_nf_total_calculado):,.2f}")
-            else:
-                st.metric(
-                    ":green[**Desconto em Boleto**]",
-                    f"R$ {abs(calc_vl_total_calculado-resposta_xml["total_nf"]):,.2f}".replace(",","x").replace(".",",").replace("x",".")
-                )
 
-        st.divider()
-        meio_pgto = resposta_xml["pgto"]["meio_pgto"]
-        valor_pgto = resposta_xml["pgto"]["valor_pgto"]
-        st.markdown(f"## :material/Payments: {meio_pagamento.get(meio_pgto,f"Cod.: {meio_pgto} - :red[Não Encontrado]")}")
-        if not resposta_xml["Boletos"]:
-            st.markdown(f"## :red[:material/Money_Off: Sem Detalhes de Vencimento do Boleto]")        
+diferenca_nf_total_calculado = calc_vl_total_calculado-resposta_xml["soma_produtos"]
+valida_calculo()
 
-            if calc_vl_total_calculado==valor_pgto:
-                st.markdown(f"### Valor Total :green[R$ {valor_pgto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
-            else:
-                st.markdown(f"### Valor Total :red[R$ {valor_pgto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
-                st.error("Boleto com valor divergente do Calculo")
-        else:            
-            if isinstance(resposta_xml["Boletos"], dict):
-                resposta_xml["Boletos"] = [(resposta_xml["Boletos"])]
-                
-            qt_Boleto = len(resposta_xml["Boletos"])
-            vl_total_boleto = sum(float(boleto["vDup"]) for boleto in resposta_xml["Boletos"])
-            st.markdown(f"### Boletos Emitidos: {qt_Boleto}")
-            
-            if (calc_vl_total_calculado==vl_total_boleto) & (vl_total_boleto==resposta_xml["total_nf"]):
-                st.markdown(f"### Valor Total :green[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
-                st.caption("Boleto :green[**IGUAL**] ao valor total da NFe e o valor calculado")
-            elif (calc_vl_total_calculado > vl_total_boleto) & (vl_total_boleto==resposta_xml["total_nf"]):
-                st.markdown(f"### Valor Total :green[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
-                st.caption("Valor a pagar :red[**MAIOR**] que valor total da NFe e IGUAL ao valor calculado")
-            elif vl_total_boleto==resposta_xml["soma_produtos"]:
-                st.markdown(f"### Valor Total :blue[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
-            else:
-                st.error("Boleto com valor divergente do Calculo")
-                st.markdown(f"### Valor Total :red[R$ {vl_total_boleto}]")
-            cols = st.columns(qt_Boleto)
-
-            for i, boleto in enumerate(resposta_xml["Boletos"]):
-                Vencimento_Boleto = datetime.strptime(boleto["dVenc"],"%Y-%m-%d")
-                with cols[i]:
-                    with st.container(border=True):
-                        st.markdown(f"Boleto: {boleto["nDup"]}")
-                        st.markdown(f"Valor: {float(boleto["vDup"]):,.2f}".replace(".","x").replace(",",".").replace("x",","))
-                        if Vencimento_Boleto>(datetime.now()+timedelta(5)):
-                            st.markdown(f":green[Vencimento: {boleto["dVenc"]}]")
-                            st.caption("PRAZO :green[**ACIMA**] DE 5 DIAS")
-                        elif Vencimento_Boleto>(datetime.now()):
-                            st.markdown(f":green[Vencimento: {boleto["dVenc"]}]")
-                            st.caption("PRAZO :orange[**ABAIXO**] DE 5 DIAS")
-                        else:
-                            st.markdown(f":red[Vencimento: {boleto["dVenc"]}]")
-                            st.caption("PRAZO :red[**VENCIDO**]")
-
-            st.divider()
-
-        st.markdown(f"### Emitente: :blue[{resposta_xml["emitente"]['emitente_fantasia']}] - {resposta_xml["emitente"]["emitente_nome"]}")
-        st.markdown(f"#### Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
-        st.markdown("## :material/Post: Relatório para Compras")
-
-        df_calc["Qt por Cx"] = df_calc["Qt un"]/df_calc["Qt Cx"]
-
-        if df_calc["Valor Guia"].sum()>0:            
-            df_dir = df_calc[['Item', 'Descrição', 'Qt Cx', "Qt por Cx", 'Valor Total',"Valor Guia", 'Valor un']]
-        else:
-            df_dir = df_calc[['Item', 'Descrição', 'Qt Cx', "Qt por Cx", 'Valor Total', 'Valor un']]
-        
-        st.dataframe(
-            df_dir.style.format({
-                "Qt por Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
-                "Qt Cx": lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
-                "Valor Total": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
-                "Valor Guia": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
-                "Valor un": lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",","),
-            }),
-            hide_index=True,
-            width="stretch",
-            height="content"
-        )
-    st.divider()
-    selecao_conf_cega = st.toggle("Ocultar bordas")
-    coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
-    with coluna1:
-        st.markdown("## :material/Package: Logística: Conferência Cega")
-    with coluna2:
-        st.write("Conferido por: _________________")
-    st.markdown(f"##### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
-    colun1, colun2, colun3, colun4 = st.columns(4, vertical_alignment="center")
-    with colun1:
-        st.write(r"______ / ______")
-        st.markdown(":_____________ Ordem")
-    with colun2:
-        st.checkbox('Descarga Normal')
-        st.checkbox('Descarga Isenta')
-    #     st.markdown(":material/Check_Box_Outline_Blank: Descarga Normal")
-    with colun3:
-        st.checkbox('Descarga Fixa')
-        # st.markdown("Descarga Fixa")
-        st.markdown("R$:_________________")
-        # st.markdown(":material/Check_Box_Outline_Blank: Descarga Isenta")
-    with colun4:
-    # with colun5:
-        # subcol1, subcol2 = st.columns(2, vertical_alignment="center")
-        # subcol1.checkbox('Lista')
-        # subcol2.checkbox('Divisão')
-        st.checkbox('Lista')
-        st.checkbox('Divisão')
-
-    df_log = resposta_xml["df"][["Codigo Fornecedor",'Descrição']].copy()
-    df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
-    df_log.index=resposta_xml["df"]["Item"]
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(
+        "Valor Total da Nota (campo total)",
+        f"R$ {resposta_xml["total_nf"]:,.2f}".replace(",","x").replace(".",",").replace("x",".")
+    )
     st.space()
-    df_log["Qt por Cx"]=""
-    df_log['Qtd Cx Contada'] = ""
-    df_log['Data Validade'] = ""
-    df_log['Qtd Palete'] = ''
-    if selecao_conf_cega: # tabela
-        st.table(
-            df_log,
-            border="horizontal",
-            width="stretch",
-        )
+    st.metric(
+        "Valor Total dos Produtos",
+        f"R$ {resposta_xml["soma_produtos"]:,.2f}".replace(",","x").replace(".",",").replace("x","."),
+    )
+with col2:
+    st.metric(
+        "Valor Total Calculado",
+        f"R$ {calc_vl_total_calculado:,.2f}".replace(",","x").replace(".",",").replace("x","."),
+    )
+    st.space()
+    if diferenca_nf_total_calculado>0:
+        st.metric(":red[**Imposto Somado**]", f"R$ {abs(diferenca_nf_total_calculado):,.2f}")
+    elif calc_vl_total_calculado == resposta_xml["total_nf"]:
+        st.metric(":green[**Sem Guia**]", f"R$ {abs(diferenca_nf_total_calculado):,.2f}")
     else:
-        st.dataframe(
-            df_log,
-            column_config={
-                "Descrição": st.column_config.TextColumn(
-                    "Descrição",
-                    width="large",
-                )
-            },
-            width="stretch",
-            height="content",
+        st.metric(
+            ":green[**Desconto em Boleto**]",
+            f"R$ {abs(calc_vl_total_calculado-resposta_xml["total_nf"]):,.2f}".replace(",","x").replace(".",",").replace("x",".")
         )
+
+st.divider()
+meio_pgto = resposta_xml["pgto"]["meio_pgto"]
+valor_pgto = round(resposta_xml["pgto"]["valor_pgto"],2)
+st.markdown(f"## :material/Payments: {meio_pagamento.get(meio_pgto,f"Cod.: {meio_pgto} - :red[Não Encontrado]")}")
+if not resposta_xml["Boletos"]:
+    st.markdown(f"## :red[:material/Money_Off: Sem Detalhes de Vencimento do Boleto]")        
+    if calc_vl_total_calculado==valor_pgto:
+        st.markdown(f"### Valor Total :green[R$ {valor_pgto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+    else:
+        st.markdown(f"### Valor Total :red[R$ {valor_pgto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+        st.error("Boleto com valor divergente do Calculo")
+else:            
+    if isinstance(resposta_xml["Boletos"], dict):
+        resposta_xml["Boletos"] = [(resposta_xml["Boletos"])]
+        
+    qt_Boleto = len(resposta_xml["Boletos"])
+    vl_total_boleto = round(sum(float(boleto["vDup"]) for boleto in resposta_xml["Boletos"]),2)
+    st.markdown(f"### Boletos Emitidos: {qt_Boleto}")
+    
+    if (calc_vl_total_calculado==vl_total_boleto) & (vl_total_boleto==resposta_xml["total_nf"]):
+        st.markdown(f"### Valor Total :green[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+        st.caption("Boleto :green[**IGUAL**] ao valor total da NFe e o valor calculado")
+    elif (calc_vl_total_calculado > vl_total_boleto) & (vl_total_boleto==resposta_xml["total_nf"]):
+        st.markdown(f"### Valor Total :green[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+        st.caption("Valor a pagar :red[**MAIOR**] que valor total da NFe e IGUAL ao valor calculado")
+    elif vl_total_boleto==resposta_xml["soma_produtos"]:
+        st.markdown(f"### Valor Total :blue[R$ {vl_total_boleto:,.2f}]".replace(".","x").replace(",",".").replace("x",","))
+    else:
+        st.error("Boleto com valor divergente do Calculo")
+        st.markdown(f"### Valor Total :red[R$ {vl_total_boleto}]")
+    cols = st.columns(qt_Boleto)
+
+    for i, boleto in enumerate(resposta_xml["Boletos"]):
+        Vencimento_Boleto = datetime.strptime(boleto["dVenc"],"%Y-%m-%d")
+        with cols[i]:
+            with st.container(border=True):
+                st.markdown(f"Boleto: {boleto["nDup"]}")
+                st.markdown(f"Valor: {float(boleto["vDup"]):,.2f}".replace(".","x").replace(",",".").replace("x",","))
+                if Vencimento_Boleto>(datetime.now()+timedelta(5)):
+                    st.markdown(f":green[Vencimento: {boleto["dVenc"]}]")
+                    st.caption("PRAZO :green[**ACIMA**] DE 5 DIAS")
+                elif Vencimento_Boleto>(datetime.now()):
+                    st.markdown(f":green[Vencimento: {boleto["dVenc"]}]")
+                    st.caption("PRAZO :orange[**ABAIXO**] DE 5 DIAS")
+                else:
+                    st.markdown(f":red[Vencimento: {boleto["dVenc"]}]")
+                    st.caption("PRAZO :red[**VENCIDO**]")
+
     st.divider()
+
+st.markdown("## :material/Post: Relatório para Compras")
+st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]['emitente_fantasia']}] - {resposta_xml["emitente"]["emitente_nome"]}")
+st.markdown(f" Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
+
+df_calc["Un por Cx"] = df_calc["Qt un"]/df_calc["Qt de Cx"]
+
+if df_calc["Valor Guia"].sum()>0:            
+    df_dir = df_calc[['Item', 'Descrição', 'Qt de Cx', "Un por Cx", 'Valor Total',"Valor Guia", 'Valor un']]
+else:
+    df_dir = df_calc[['Item', 'Descrição', 'Qt de Cx', "Un por Cx", 'Valor Total', 'Valor un']]
+
+
+formato_br = lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",",")
+formato_moeda = lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",",")
+
+st.dataframe(
+    df_dir
+    .style.format({
+        "Un por Cx": formato_br,
+        "Qt de Cx": formato_br,
+        "Valor Total": formato_moeda,
+        "Valor Guia": formato_moeda,
+        "Valor un": formato_moeda,
+    }),
+    hide_index=True,
+    width="stretch",
+    height="content"
+)
+if df_calc["Ucom"].isin(["kg"]).all():
+    st.info("NF veio em KG")
+
+st.divider()
+selecao_conf_cega = st.toggle("Layout Secundário")
+coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
+with coluna1:
+    st.markdown("## :material/Package: Logística: Conferência Cega")
+with coluna2:
+    st.write("Conferido por: _________________")
+
+st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
+st.markdown(f"Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
+
+colun1, colun2, colun3, colun4 = st.columns(4, vertical_alignment="center")
+with colun1:
+    st.write(r"______ / ______")
+    st.markdown(":_____________ Ordem")
+with colun2:
+    st.checkbox('Descarga Normal')
+    st.checkbox('Descarga Isenta')
+with colun3:
+    st.checkbox('Descarga Fixa')
+    st.markdown("R$:_________________")
+with colun4:
+    st.checkbox('Lista')
+    st.checkbox('Divisão')
+
+df_log = resposta_xml["df"][["Codigo Fornecedor",'Descrição']].copy()
+df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
+df_log.index=resposta_xml["df"]["Item"]
+st.space()
+df_log["Un por Cx"]=""
+df_log['Qtd Cx Contada'] = ""
+df_log['Data Validade'] = ""
+df_log['Qtd Palete'] = ''
+if selecao_conf_cega: # tabela
+    st.table(
+        df_log,
+        border="horizontal",
+        width="stretch",
+    )
+else:
+    st.dataframe(
+        df_log,
+        column_config={
+            "Descrição": st.column_config.TextColumn(
+                "Descrição",
+                width="large",
+            )
+        },
+        width="stretch",
+        height="content",
+    )
+st.divider()
