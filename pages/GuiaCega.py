@@ -1,6 +1,7 @@
 import streamlit as st
 import xmltodict
 import pandas as pd
+from utils import layout_guia_cega
 
 def processa_XML(xml_file):
     data = xmltodict.parse(xml_file)
@@ -216,49 +217,20 @@ st.set_page_config(page_title="Calcula NFe", layout="wide")
 st.markdown("# :material/Adf_scanner: Calculo NF-e de Compras")
 st.markdown("## :material/Upload: Importação de Arquivo xml")
 
-
-
 uploaded_file = st.file_uploader("NFe - Arraste o XML da nota fiscal aqui", type="xml")
 if (not uploaded_file):
     st.info("Insira o XML para iniciar imprimir a Guia Cega")
     st.divider()
     st.stop()
+
 resposta_xml = processa_XML(uploaded_file)
 
 st.divider()
 selecao_conf_cega = st.toggle("Layout Secundário")
-coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
-with coluna1:
-    st.markdown("## :material/Package: Logística: Conferência Cega")
-with coluna2:
-    st.write("Conferido por: _________________")
 
-st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
-st.markdown(f"Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
+df_log = layout_guia_cega(resposta_xml)
 
-colun1, colun2, colun3, colun4 = st.columns(4, vertical_alignment="center")
-with colun1:
-    st.write(r"______ / ______")
-    st.markdown(":_____________ Ordem")
-with colun2:
-    st.checkbox('Descarga Normal')
-    st.checkbox('Descarga Isenta')
-with colun3:
-    st.checkbox('Descarga Fixa')
-    st.markdown("R$:_________________")
-with colun4:
-    st.checkbox('Lista')
-    st.checkbox('Divisão')
-
-df_log = resposta_xml["df"][["Codigo Fornecedor",'Descrição']].copy()
-df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
-df_log.index=resposta_xml["df"]["Item"]
-st.space()
-df_log["Un por Cx"]=""
-df_log['Qtd Cx Contada'] = ""
-df_log['Data Validade'] = ""
-df_log['Qtd Palete'] = ''
-if selecao_conf_cega: # tabela
+if selecao_conf_cega:
     st.table(
         df_log,
         border="horizontal",

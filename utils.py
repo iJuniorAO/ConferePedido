@@ -66,3 +66,40 @@ def validar_acesso(roles_permitidas=["administrador"]):
         st.markdown("# :red[:material/block: ACESSO NEGADO]")
         st.text("Seu usuário não possui permissão para esta página.")
         st.stop()
+
+# Guia Cega Layout
+def layout_guia_cega(resposta_xml):
+
+    df_log = resposta_xml["df"][["Codigo Fornecedor",'Descrição']].copy()
+    df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
+    df_log.index=resposta_xml["df"]["Item"]
+
+    df_log["Un por Cx"]=""
+    df_log['Qtd Cx Contada'] = ""
+    df_log['Data Validade'] = ""
+    df_log['Qtd Palete'] = ''    
+
+    coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
+    with coluna1:
+        st.markdown("## :material/Package: Logística: Conferência Cega")
+    with coluna2:
+        st.write("Conferido por: _________________")
+
+    st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
+    st.markdown(f"Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
+
+    colun1, colun2, colun3, colun4 = st.columns(4, vertical_alignment="center")
+    with colun1:
+        st.write(r"______ / ______")
+        st.markdown(":_____________ Ordem")
+    with colun2:
+        st.checkbox('Descarga Normal')
+        st.checkbox('Descarga Isenta')
+    with colun3:
+        st.checkbox('Descarga Fixa')
+        st.markdown("R$:_________________")
+    with colun4:
+        st.checkbox('Lista')
+        st.checkbox('Divisão')
+
+    return df_log
