@@ -3,6 +3,7 @@ import xmltodict
 import re
 import pandas as pd
 from datetime import datetime,timedelta
+from utils import layout_guia_cega
 
 #   Input do número do XML e buscar no site da fazenda para calculo
 #   Testar Calculo de Bonificação se está OK, somente testado com guia
@@ -495,39 +496,12 @@ if not pendencia_calculo:
         st.info("NF veio em KG")
 
 st.divider()
-selecao_conf_cega = st.toggle("Layout Secundário")
-coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
-with coluna1:
-    st.markdown("## :material/Package: Logística: Conferência Cega")
-with coluna2:
-    st.write("Conferido por: _________________")
+layout_secundario = st.toggle("Layout Secundário")
 
-st.markdown(f"#### Emitente: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] - {resposta_xml["emitente"]["emitente_nome"]}")
-st.markdown(f"Nº NFe: :blue[{resposta_xml["nr_Nfe"]}]")
+df_log = layout_guia_cega(resposta_xml)
 
-colun1, colun2, colun3, colun4 = st.columns(4, vertical_alignment="center")
-with colun1:
-    st.write(r"______ / ______")
-    st.markdown(":_____________ Ordem")
-with colun2:
-    st.checkbox('Descarga Normal')
-    st.checkbox('Descarga Isenta')
-with colun3:
-    st.checkbox('Descarga Fixa')
-    st.markdown("R$:_________________")
-with colun4:
-    st.checkbox('Lista')
-    st.checkbox('Divisão')
 
-df_log = resposta_xml["df"][["Codigo Fornecedor",'Descrição']].copy()
-df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
-df_log.index=resposta_xml["df"]["Item"]
-st.space()
-df_log["Un por Cx"]=""
-df_log['Qtd Cx Contada'] = ""
-df_log['Data Validade'] = ""
-df_log['Qtd Palete'] = ''
-if selecao_conf_cega: # tabela
+if layout_secundario:
     st.table(
         df_log,
         border="horizontal",

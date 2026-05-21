@@ -12,6 +12,7 @@ divisao_page = st.Page("pages/divisao.py", title="Divisão",icon=":material/prom
 
 pedidos_page = st.Page("pages/4Pedidos.py", title="Pedidos Feitos", icon=":material/shopping_cart:")
 calcula_nf_page = st.Page("pages/5Calcula_NF.py", title="Calcula NFe", icon=":material/calculate:")
+print_guia_page = st.Page("pages/GuiaCega.py", title="Guia Cega", icon=":material/adf_scanner:")
 plan_dev_page = st.Page("pages/7Planilha_Dev.py", title="Planilha Devolução", icon=":material/assignment_return:")
 
 
@@ -25,7 +26,7 @@ pages = {
         login_page,home_page,margem_page
     ],
     'Administrativo': [
-        fazer_pedido_page,lanca_pedido_page,divisao_page,pedidos_page,calcula_nf_page,plan_dev_page
+        fazer_pedido_page,lanca_pedido_page,divisao_page,pedidos_page,calcula_nf_page, print_guia_page,plan_dev_page
     ],
     'Lista': [
         lista_loja_page,lista_atacado_page
