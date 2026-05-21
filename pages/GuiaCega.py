@@ -1,13 +1,6 @@
 import streamlit as st
 import xmltodict
 import pandas as pd
-from datetime import datetime,timedelta
-
-from fpdf import FPDF
-import io
-
-#   Input do número do XML e buscar no site da fazenda para calculo
-#   Testar Calculo de Bonificação se está OK, somente testado com guia
 
 def processa_XML(xml_file):
     data = xmltodict.parse(xml_file)
@@ -116,7 +109,6 @@ def processa_XML(xml_file):
         "outras_despesas": outras_despesas
     }
 
-def gerar_pdf_conferencia(resposta_xml):
     # Inicializa o PDF em modo Retrato (P), milímetros (mm) e formato A4
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_margins(5, 5, 5)
@@ -285,23 +277,3 @@ else:
         height="content",
     )
 st.divider()
-
-
-# --- INTEGRAÇÃO DO BOTÃO DE IMPRESSÃO EM PDF ---
-pdf_data_raw = gerar_pdf_conferencia(resposta_xml)
-pdf_data = bytes(pdf_data_raw)
-
-try:
-    # Gera os bytes do PDF chamando a função que criamos acima
-    # pdf_data = gerar_pdf_conferencia(resposta_xml)
-    
-    st.download_button(
-        label="Gerar Guia Cega para Impressão",
-        data=pdf_data,
-        file_name=f"Guia_Cega_NFe_{resposta_xml['nr_Nfe']}.pdf",
-        mime="application/pdf",
-        icon=":material/print:",
-        width='stretch',
-    )
-except Exception as e:
-    st.error(f"Erro ao estruturar documento de impressão: {e}")
