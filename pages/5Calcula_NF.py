@@ -184,7 +184,6 @@ def calculos(df, vl_total_nf, outras_despesas,emitente, fator_conversao, unidade
         return guia_ST
 
     df["Valor Outras Despesas"] = (df["Valor Original"]/df["Valor Original"].sum())*outras_despesas
-    df["Valor Guia"] = 0
 
     df = define_cx_un()
 
@@ -213,10 +212,13 @@ def calculos(df, vl_total_nf, outras_despesas,emitente, fator_conversao, unidade
                 st.error("Guia ST tem valores zerados!")
                 st.stop()
             df = df.merge(guia_st,how="left")
+            df["Valor Guia"] = df["Valor Guia"].fillna(0)
         else:
             st.info(f"Contactar Contabilidade")
-            st.stop()        
-
+            st.stop()
+      
+    if "Valor Guia" not in df.columns:
+        df["Valor Guia"] = 0  
     
     if ignora_impostos:
         df["Valor Total"] = df["Valor Original"]
