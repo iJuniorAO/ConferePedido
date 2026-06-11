@@ -34,7 +34,8 @@ def tratar_erros_supabase(e):
     traducoes = {
         'New password should be different from the old password':'A nova senha não pode ser igual à senha atual. Por favor, escolha uma senha diferente.',
         'Email not confirmed': 'Necessário confirmar email antes do 1º Acesso.',
-        'Invalid login credentials': 'Usuário ou Senha incorretos'
+        'Invalid login credentials': 'Usuário ou Senha incorretos',
+        'JWT expired': 'Sua sessão expirou! Por favor, faça login novamente para continuar.',
     }
 
     for ingles, portugues in traducoes.items():
