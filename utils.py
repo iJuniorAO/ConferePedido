@@ -47,7 +47,7 @@ def abrir_arquivo_txt(arquivo, colunas=None):
 
 def validar_acesso(roles_permitidas=["administrador"]):
     # 1. Verifica se está logado
-    if st.session_state.get('perfil') == 'none':
+    if st.session_state.get('perfil') == 'none' or "perfil" not in st.session_state:
         st.markdown("# :red[:material/lock: ACESSO NEGADO]")
         st.text("É necessário realizar o login para continuar.")
         if st.button('Ir para Login'):
