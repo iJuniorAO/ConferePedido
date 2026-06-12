@@ -481,21 +481,35 @@ if not pendencia_calculo:
     formato_br = lambda x: f"{x:,.2f}".replace(".","x").replace(",",".").replace("x",",")
     formato_moeda = lambda x: f"R$ {x:,.2f}".replace(".","x").replace(",",".").replace("x",",")
 
-    st.dataframe(
-        df_dir
-        .style.format({
+    if unidade_compra == "KG":
+        st.info("NF veio em KG")
+        df_dir = df_dir.rename(columns={
+            "Qt de Cx": "Qt KG",
+            "Un por Cx": "Kg por Emb",
+            "Valor un": "Valor KG"
+        }).drop(columns=["Kg por Emb"])
+                
+        format_config = {
+            "Qt KG": formato_br,
+            "Valor Total": formato_moeda,
+            "Valor Guia": formato_moeda,
+            "Valor KG": formato_moeda,
+        }
+    else:
+        format_config = {
             "Un por Cx": formato_br,
             "Qt de Cx": formato_br,
             "Valor Total": formato_moeda,
             "Valor Guia": formato_moeda,
             "Valor un": formato_moeda,
-        }),
+        }
+
+    st.dataframe(
+        df_dir.style.format(format_config),
         hide_index=True,
         width="stretch",
         height="content"
     )
-    if df_calc["Ucom"].isin(["kg"]).all():
-        st.info("NF veio em KG")
 
 st.divider()
 layout_secundario = st.toggle("Layout Secundário")
