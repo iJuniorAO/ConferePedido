@@ -210,7 +210,7 @@ def reconciliar_estoque_e_validades(df_db, df_txt):
         if Mudou_algo:
             st.cache_data.clear()
             st.info("mudou algo")
-            # st.rerun()
+            st.rerun()
 
 
 # --- FLUXO PRINCIPAL DO APP ---
