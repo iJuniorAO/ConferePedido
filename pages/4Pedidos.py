@@ -9,7 +9,7 @@ key = st.secrets["connections"]["supabase"]["key"]
 supabase: Client = create_client(url, key)
 
 #   --  CONSTANTES --
-ROTA1 = ["JARDIM ALTEROSA", "SANTA CRUZ", "SÃO LUIZ", "CENTRO BETIM", "NOVA CONTAGEM","LARANJEIRAS", "MUMIX EXPRESS"]
+ROTA1 = ["JARDIM ALTEROSA", "SANTA CRUZ", "SAO LUIZ", "CENTRO BETIM", "NOVA CONTAGEM","LARANJEIRAS", "MUMIX EXPRESS"]
 ROTA2 = ["RIBEIRÃO DAS NEVES", "VENDA NOVA", "GOIANIA", "LAGOA SANTA", "CEU AZUL", "PALMITAL"]
 ROTA3 = ["CABANA", "CABRAL"]
 ROTA4 = ["PEDRA AZUL", "CONFISCO", "SERRANO"]
@@ -18,7 +18,7 @@ ROTA6 = ["SILVA LOBO", "SANTA HELENA", "ELDORADO", "IBIRITE"]
 ROTA7 = ["LAGUNA", "PROGRESSO", "PINDORAMA"]
 ROTA8 = ["PARA DE MINAS", "CAETE"]
 
-Rotas = [ROTA1, ROTA2, ROTA3, ROTA4, ROTA5, ROTA6, ROTA7]
+Rotas = [ROTA1, ROTA2, ROTA3, ROTA4, ROTA5, ROTA6, ROTA7, ROTA8]
 
 def identificar_rota(loja):
     for i, rota in enumerate(Rotas, 1):
@@ -128,6 +128,7 @@ if falha:
 
 if dt_Tipo_Pedido:
     lojas = carregar_lojas_banco_dados()
+    pedidos_igual_dt["loja"] = pedidos_igual_dt["loja"].str.strip()
     pedidos_todos = pedidos_igual_dt.pivot_table(
         index="loja",
         columns="tipo_pedido",
@@ -201,7 +202,7 @@ if dt_Tipo_Pedido:
             else:
                 st.info("Nenhum pedido para essa rota")
                 st.space()
-    # Exibe SEM ROTA sozinho no final
+    # Exibe SEM ROTA no final
     if tem_sem_rota:
         st.divider()
         df_sem_rota = pedidos_feitos[pedidos_feitos["ROTA"] == "SEM ROTA"].copy()
