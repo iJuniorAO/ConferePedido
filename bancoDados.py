@@ -11,7 +11,6 @@ def inicia_conexao_bancoDados():
 def obter_lojas(supabase):
     try:
         resposta = supabase.table("clientes").select("*").execute()
-        # resposta = supabase.table("clientes").select("*").neq('grupo','teste').neq('grupo','atacado').execute()
         return {'status': True,
                 'resposta': resposta.data,
                 }
