@@ -145,13 +145,13 @@ if dt_Tipo_Pedido:
     
     for tipo_pedido in ["CONG", "SECO", "PESO"]:
         if tipo_pedido in pedidos_todos:
+            pedidos_todos[tipo_pedido] = pedidos_todos[tipo_pedido].astype(object)
             pedidos_todos.loc[pedidos_todos[tipo_pedido].notna(), tipo_pedido] = "x"
         else:
             pedidos_todos[tipo_pedido] = ""
     pedidos_todos = pedidos_todos.fillna("")
     pedidos_todos = pedidos_todos.reset_index()
     pedidos_todos["ROTA"] = pedidos_todos["loja"].apply(identificar_rota)
-
 
     # Reordena as colunas para facilitar a visualização por rota
     cols = ["ROTA"] + [c for c in pedidos_todos.columns if c not in ["ROTA"]]
