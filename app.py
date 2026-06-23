@@ -11,11 +11,9 @@ fazer_pedido_page = st.Page("pages/Fazer_Pedido.py", title="Fazer Pedidos", icon
 lanca_pedido_page = st.Page("pages/1Lanca_Pedido.py", title="Lança Pedidos",icon=":material/add_shopping_cart:")
 divisao_page = st.Page("pages/divisao.py", title="Divisão",icon=":material/prompt_suggestion:")
 calcula_nf_page = st.Page("pages/5Calcula_NF.py", title="Calcula NFe", icon=":material/calculate:")
-print_guia_page = st.Page("pages/GuiaCega.py", title="Guia Cega", icon=":material/adf_scanner:")
 plan_dev_page = st.Page("pages/7Planilha_Dev.py", title="Planilha Devolução", icon=":material/assignment_return:")
 pedidos_page = st.Page("pages/4Pedidos.py", title="Pedidos Feitos", icon=":material/shopping_cart:")
 validade = st.Page("pages/Validade.py", title="Validade", icon=":material/date_range:")
-rotas_page = st.Page("pages/Rotas.py", title="Rotas", icon=":material/route:")
 
 #lista
 lista_loja_page = st.Page("pages/2Lista.py", title="Lista Lojas", icon=":material/shelves:")
@@ -24,12 +22,19 @@ lista_atacado_page = st.Page("pages/3Atacado.py", title="Lista Atacado", icon=":
 #financeiro
 previa_financeira_page = st.Page("pages/6Previa_Financeira.py", title="Previa Financeira", icon=":material/wallet:")
 
+#Trocas e Devoluções
+trocas_page = st.Page("pages/jira.py", title="Trocas e Devolucoes", icon=":material/swap_horizontal_circle:")
+
+#logistica
+print_guia_page = st.Page("pages/GuiaCega.py", title="Guia Cega", icon=":material/adf_scanner:")
+rotas_page = st.Page("pages/Rotas.py", title="Rotas", icon=":material/route:")
+
 pages = {
     'Home': [
         login_page,home_page,margem_page
     ],
     'Administrativo': [
-        fazer_pedido_page,lanca_pedido_page,divisao_page,pedidos_page,calcula_nf_page,plan_dev_page, validade
+        fazer_pedido_page,lanca_pedido_page,divisao_page,pedidos_page,calcula_nf_page,plan_dev_page, trocas_page, validade
     ],
     'Logistica':[
         rotas_page, print_guia_page
