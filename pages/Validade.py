@@ -377,7 +377,7 @@ def reconciliar_estoque_e_validades(df_db, df_txt):
 # --- FLUXO PRINCIPAL DO APP ---
 
 st.markdown("# Controle de Validades - Sistema MUMIX")
-validar_acesso()
+validar_acesso(["administrador", "prevencao"])
 
 # 1. Puxa dados brutos
 df_db = puxar_tabela_validade()
