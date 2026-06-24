@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import streamlit as st
-from supabase import create_client, Client
 from utils import carregar_dados_onedrive, abrir_arquivo_txt, validar_acesso
 from bancoDados import inicia_conexao_bancoDados, tratar_erros_supabase
+import streamlit as st
+from thefuzz import process
 
 # Inicializa conexão
 supabase = inicia_conexao_bancoDados()
@@ -61,8 +62,6 @@ COLUNAS_ORDEM_TOTAL = [
 ]
 
 # --- FUNÇÕES STREAMLIT ---
-import streamlit as st
-import time
 
 
 # 1. Definimos a função do diálogo de sucesso
@@ -192,6 +191,68 @@ def limpeza_inicial_banco_dados():
         st.error(f"ERRO ao realizar limpeza inicial (validade): {e}")
 
 
+# --- BUSCA CODIGO ---
+def buscar_produtos(
+    termo_busca: str, df_original: pd.DataFrame, usar_fuzzy: bool = True
+) -> pd.DataFrame:
+    """
+    Filtra o dataframe de produtos com base no termo e no método escolhido.
+
+    Inputs:
+        termo_busca (str): O texto vindo da NFe do fornecedor.
+        usar_fuzzy (bool): Se True, usa Fuzzy (Top 5). Se False, usa Regex (Curingas).
+        df_original (pd.DataFrame): O cadastro completo de produtos.
+
+    Retorno:
+        pd.DataFrame: Dataframe filtrado ou vazio se nada for encontrado.
+    """
+    # Se o campo estiver vazio, retorna o dataframe original (ou vazio, dependendo da sua preferência)
+    if not termo_busca.strip():
+        return pd.DataFrame()
+        # return df_original
+
+    if usar_fuzzy:
+        # Pega a lista de descrições internas para o algoritmo comparar
+        lista_opcoes = df_original["Descricao"].tolist()
+
+        # Extrai os top 5 mais parecidos. Retorna uma lista de tuplas: [('Texto', score), ...]
+        melhores_matches = process.extract(termo_busca, lista_opcoes, limit=15)
+
+        # Filtra apenas os que tiveram um score mínimo aceitável (ex: maior que 30) para evitar lixo
+        textos_filtrados = [match[0] for match in melhores_matches if match[1] > 30]
+
+        if not textos_filtrados:
+            return pd.DataFrame(columns=df_original.columns)
+
+        # Filtra o DataFrame original trazendo apenas as linhas dos textos encontrados
+        df_resultado = df_original[
+            df_original["Descricao"].isin(textos_filtrados)
+        ].copy()
+
+        # Opcional: Adiciona a coluna de score para você ver o nível de certeza na tela
+        mapeamento_scores = {match[0]: match[1] for match in melhores_matches}
+        df_resultado["similaridade_%"] = df_resultado["Descricao"].map(
+            mapeamento_scores
+        )
+        df_resultado = df_resultado[COLUNAS_VALIDADE + ["similaridade_%"]]
+
+        # Ordena do mais parecido para o menos parecido
+        return df_resultado.sort_values(by="similaridade_%", ascending=False)
+
+    else:
+        # Busca por Regex / Contém (Aceita curingas como '.*')
+        try:
+            df_resultado = df_original[
+                df_original["Descricao"].str.contains(
+                    termo_busca, case=False, na=False, regex=True
+                )
+            ]
+            return df_resultado[COLUNAS_VALIDADE]
+        except Exception:
+            # Caso o usuário digite um caractere de regex inválido enquanto digita, evita quebrar o app
+            return pd.DataFrame(columns=df_original.columns)
+
+
 # --- ENGINE DE RECONCILIAÇÃO AUTOMÁTICA ---
 def reconciliar_estoque_e_validades(df_db, df_txt):
     """
@@ -316,7 +377,7 @@ def reconciliar_estoque_e_validades(df_db, df_txt):
 # --- FLUXO PRINCIPAL DO APP ---
 
 st.markdown("# Controle de Validades - Sistema MUMIX")
-# validar_acesso()
+validar_acesso()
 
 # 1. Puxa dados brutos
 df_db = puxar_tabela_validade()
@@ -374,7 +435,7 @@ df_emBranco = df_validade[
 ]
 df_emBranco = df_emBranco[df_emBranco["Estoq"] > 0]
 
-st.markdown("## Indicadores")
+st.markdown("## :material/Editor_Choice: Indicadores")
 col_ind1, col_ind2 = st.columns(2)
 with col_ind1:
     if not df_avaria.empty:
@@ -507,32 +568,168 @@ with aba_geral:
     )
 
 
-st.markdown("---")
-st.markdown("## :material/New_Label: Inserir / Bipar Nova Validade")
+st.divider()
+st.markdown("## :material/edit: Modificar Valores")
 
-with st.form(key="form_nova_validade", clear_on_submit=True):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        codigo_input = st.text_input(
-            "Código do Produto", placeholder="Bipe ou digite o código"
-        )
-    with col2:
-        validate_input = st.date_input(
-            "Data de Validade", value=datetime.today(), format="DD/MM/YYYY"
-        )
-    with col3:
-        qt_input = st.number_input("Quantidade Contada", min_value=0, step=1, value=0)
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("### :material/New_Label: Inserir / Bipar Nova Validade")
 
-    col4, col5 = st.columns([1, 3])
-    with col4:
-        avaria_input = st.checkbox("Produto com Avaria?")
-    with col5:
-        obs_input = st.text_input(
-            "Observações",
-            placeholder="Ex: Lote promocional / Avaria / Aguardando Fornecedor...",
+    with st.form(key="form_nova_validade", clear_on_submit=True):
+        col1_form, col2_form, col3_form = st.columns(3)
+        with col1_form:
+            codigo_input = st.text_input(
+                "Código do Produto", placeholder="Bipe ou digite o código"
+            )
+        with col2_form:
+            validate_input = st.date_input(
+                "Data de Validade", value=datetime.today(), format="DD/MM/YYYY"
+            )
+        with col3_form:
+            qt_input = st.number_input(
+                "Quantidade Contada", min_value=0, step=1, value=0
+            )
+
+        col4_form, col5_form = st.columns([1, 3])
+        with col4_form:
+            avaria_input = st.checkbox("Produto com Avaria?")
+        with col5_form:
+            obs_input = st.text_input(
+                "Observações",
+                placeholder="Ex: Lote promocional / Avaria / Aguardando Fornecedor...",
+            )
+
+        botao_enviar = st.form_submit_button(label="Salvar Validade")
+
+
+with col2:
+    st.markdown("### :material/Edit: Atualizar Quantidade Contada")
+
+    with st.form(key="form_atualizar_qt", clear_on_submit=True):
+        col_atualiza1, col_atualiza2, col_atualiza3 = st.columns(3)
+        with col_atualiza1:
+            codigo_atualiza_input = st.text_input(
+                "Codigo", placeholder="Bipe ou digite o codigo"
+            )
+        with col_atualiza2:
+            validade_atualiza_input = st.date_input(
+                "Validade", value=datetime.today(), format="DD/MM/YYYY"
+            )
+        with col_atualiza3:
+            nova_qtd_input = st.number_input(
+                "Nova quantidade", min_value=0, step=1, value=0
+            )
+
+        avaria_atualiza_input = st.checkbox(
+            "Produto com Avaria?", key="avaria_atualiza_qt"
+        )
+        st.space("medium")
+        botao_atualizar_qt = st.form_submit_button(label="Atualizar Quantidade")
+
+
+with col3:
+    st.markdown("### :material/Delete: Deletar Registro de Validade")
+
+    with st.form(key="form_deletar_validade", clear_on_submit=True):
+        col_del1, col_del2 = st.columns(2)
+        with col_del1:
+            codigo_del_input = st.text_input(
+                "Código para Deletar", placeholder="Bipe ou digite o código"
+            )
+        with col_del2:
+            validade_del_input = st.date_input(
+                "Data do Registro",
+                value=datetime.today(),
+                format="DD/MM/YYYY",
+                key="del_date",
+            )
+
+        avaria_del_input = st.checkbox("Registro de Avaria?", key="del_avaria")
+
+        botao_deletar = st.form_submit_button(label="Excluir Registro")
+
+
+st.divider()
+st.markdown("## :material/Search: Encontrar código")
+
+col1_encontra, col2_encontra = st.columns(2)
+with col1_encontra:
+    descricao_produto = st.text_input(
+        "Digite a descrição do produto:",
+        help="""
+    **Como pesquisar? Você tem duas opções:**
+
+    1️⃣ **Por aproximação (Fuzzy Match):** 
+    Digite o nome do produto normalmente. O sistema vai encontrar palavras parecidas ou com pequenos erros de digitação. 
+    *Ex: "Iogurte"* encontra *"Iogurt"*, *"Iogurte"* ou *"Iogurti"*.
+
+    ---
+
+    2️⃣ **Por padrão exato (Regex com Curinga `.*`):**
+    Use `.*` para indicar que pode existir *qualquer texto* naquele meio.
+    *Exemplo:* `IOG GAR.*150G`
+
+    ✅ **Encontra:**
+    * IOG GAR MORANGO ACTIVIA 150G 20
+    * IOG GAR AMEIXA ACTIVIA 150G 20
+    * IOG GAR VITAMINA COM CEREAL BATAVO 1150G 8
+
+    ❌ **Não encontra:**
+    * IOG LIQ GAR MORANGO BATAVO 1150G 8 *(porque 'LIQ' quebrou a ordem do início)*
+    """,
+    )
+
+with col2_encontra:
+    metodo_selecionado = st.selectbox(
+        "Selecione o método de busca:",
+        options=["Busca por palavra exata (Regex)", "Busca Inteligente (Fuzzy Match)"],
+    )
+metodo_selecionado = metodo_selecionado == "Busca Inteligente (Fuzzy Match)"
+
+df_produtos_encontrados = pd.DataFrame()
+if descricao_produto:
+    df_produtos_encontrados = buscar_produtos(
+        termo_busca=descricao_produto,
+        df_original=df_validade,
+        usar_fuzzy=metodo_selecionado,
+    )
+
+# Exibição do resultado
+if df_produtos_encontrados.empty:
+    st.info("Nenhum produto correspondente encontrado no cadastro interno.")
+else:
+    st.markdown("## Resultados Encontrados:")
+    st.write(f"Exibindo :blue[{len(df_produtos_encontrados)}] registro(s):")
+    st.dataframe(df_produtos_encontrados, width="stretch", hide_index=True)
+
+
+def deletar_validade(codigo: str, validade: datetime.date, avaria: bool = False):
+    """Deleta um registro específico de validade no Supabase."""
+    try:
+        query = (
+            supabase.table("validades")
+            .delete()
+            .eq("CodProduto", codigo)
+            .eq("validade", str(validade))
+            .eq("avaria", avaria)
         )
 
-    botao_enviar = st.form_submit_button(label="Salvar Validade")
+        response = query.execute()
+        if response.data:
+            # st.success(f"Registro do produto {codigo} deletado com sucesso!")
+            st.cache_data.clear()
+            confirmar_e_atualizar(
+                f"Registro do produto {codigo} deletado com sucesso!", True
+            )
+            # st.rerun()
+        else:
+            st.error("Nenhum registro encontrado com esses critérios para exclusão.")
+    except Exception as e:
+        st.error(f"Erro ao deletar registro no Banco de Dados: {e}")
+
+
+st.divider()
+
 
 if botao_enviar:
     if not codigo_input.strip():
@@ -563,27 +760,6 @@ if botao_enviar:
                 )
 
 
-st.divider()
-st.markdown("## :material/Edit: Atualizar Quantidade Contada")
-
-with st.form(key="form_atualizar_qt", clear_on_submit=True):
-    col_atualiza1, col_atualiza2, col_atualiza3 = st.columns(3)
-    with col_atualiza1:
-        codigo_atualiza_input = st.text_input(
-            "Codigo", placeholder="Bipe ou digite o codigo"
-        )
-    with col_atualiza2:
-        validade_atualiza_input = st.date_input(
-            "Validade", value=datetime.today(), format="DD/MM/YYYY"
-        )
-    with col_atualiza3:
-        nova_qtd_input = st.number_input(
-            "Nova quantidade", min_value=0, step=1, value=0
-        )
-
-    avaria_atualiza_input = st.checkbox("Produto com Avaria?", key="avaria_atualiza_qt")
-    botao_atualizar_qt = st.form_submit_button(label="Atualizar Quantidade")
-
 if botao_atualizar_qt:
     codigo_atualiza = codigo_atualiza_input.strip()
 
@@ -599,52 +775,6 @@ if botao_atualizar_qt:
             avaria=avaria_atualiza_input,
         )
 
-
-def deletar_validade(codigo: str, validade: datetime.date, avaria: bool = False):
-    """Deleta um registro específico de validade no Supabase."""
-    try:
-        query = (
-            supabase.table("validades")
-            .delete()
-            .eq("CodProduto", codigo)
-            .eq("validade", str(validade))
-            .eq("avaria", avaria)
-        )
-
-        response = query.execute()
-        if response.data:
-            # st.success(f"Registro do produto {codigo} deletado com sucesso!")
-            st.cache_data.clear()
-            confirmar_e_atualizar(
-                f"Registro do produto {codigo} deletado com sucesso!", True
-            )
-            # st.rerun()
-        else:
-            st.error("Nenhum registro encontrado com esses critérios para exclusão.")
-    except Exception as e:
-        st.error(f"Erro ao deletar registro no Banco de Dados: {e}")
-
-
-st.divider()
-st.markdown("## :material/Delete: Deletar Registro de Validade")
-
-with st.form(key="form_deletar_validade", clear_on_submit=True):
-    col_del1, col_del2 = st.columns(2)
-    with col_del1:
-        codigo_del_input = st.text_input(
-            "Código para Deletar", placeholder="Bipe ou digite o código"
-        )
-    with col_del2:
-        validade_del_input = st.date_input(
-            "Data do Registro",
-            value=datetime.today(),
-            format="DD/MM/YYYY",
-            key="del_date",
-        )
-
-    avaria_del_input = st.checkbox("Registro de Avaria?", key="del_avaria")
-
-    botao_deletar = st.form_submit_button(label="Excluir Registro")
 
 if botao_deletar:
     if not codigo_del_input.strip():
