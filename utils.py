@@ -73,6 +73,27 @@ def validar_acesso(roles_permitidas=["administrador"]):
         st.stop()
 
 
+def ler_planilha(caminho_arquivo, colunas=None):
+    """Lê o Excel e define os nomes das colunas conforme o notebook"""
+
+    try:
+        df = pd.read_excel(caminho_arquivo, header=None, names=colunas)
+        return {"erro": False, "df": df}
+    except TypeError as e:
+        print(f"ERRO - Tentando usar openpyxl...")
+        try:
+            df = pd.read_excel(
+                caminho_arquivo, header=None, names=colunas, engine="calamine"
+            )
+            return {"erro": False, "df": df}
+        except TypeError as e:
+            print(f"ERRO - Não foi possível abrir {e}")
+            return {"erro": True, "df": df}
+        except ValueError as e:
+            print(f"ERRO - Tipo de arquivo errado")
+            return {"erro": True, "df": df}
+
+
 # Guia Cega Layout
 def layout_guia_cega(resposta_xml):
 
