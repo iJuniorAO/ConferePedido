@@ -2,7 +2,12 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import streamlit as st
-from utils import carregar_dados_onedrive, abrir_arquivo_txt, validar_acesso
+from utils import (
+    carregar_dados_onedrive,
+    abrir_arquivo_txt,
+    validar_acesso,
+    converte_ultima_modificacao,
+)
 from bancoDados import inicia_conexao_bancoDados, tratar_erros_supabase
 import streamlit as st
 from thefuzz import process
@@ -382,6 +387,25 @@ validar_acesso(["administrador", "prevencao"])
 # 1. Puxa dados brutos
 df_db = puxar_tabela_validade()
 dados_txt = carregar_dados_onedrive(link_txt)
+
+if "dados_onedrive" not in st.session_state:
+    st.session_state.dados_onedrive = carregar_dados_onedrive(link_txt)
+
+response = st.session_state.dados_onedrive
+
+if response["falha"]:
+    st.error("Não foi possível pegar produto.txt automaticamente")
+    st.stop()
+
+if response["data"]:
+    ultima_modificacao_dt = converte_ultima_modificacao(response["data"])
+
+    st.write(
+        f"Ultima modificação: :red[{ultima_modificacao_dt.strftime("%H:%M:%S")}]  | :red[{ultima_modificacao_dt.strftime("%d/%m/%Y")}]"
+    )
+
+dados_txt = response["resp"]
+
 df_txt_bruto = abrir_arquivo_txt(dados_txt, colunas=COLUNAS_PRODUTOS)
 df_txt = trata_df(df_txt_bruto)
 

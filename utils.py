@@ -3,39 +3,55 @@ import requests
 import re
 import pandas as pd
 import io
+from datetime import datetime, timezone, timedelta
 
 
-# carrega dados do banco de dados e retorna pandas
-@st.cache_data(ttl=120, scope="session")
+@st.cache_data(
+    ttl=7200, show_spinner="Carregando dados txt", show_time=True, scope="session"
+)
 def carregar_dados_onedrive(input_texto):
-    with st.spinner("Pegando Arquivos txt...", show_time=True):
-        try:
-            # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
-            url_match = re.search(r'src="([^"]+)"', input_texto)
-            url = url_match.group(1) if url_match else input_texto
+    try:
+        # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
+        url_match = re.search(r'src="([^"]+)"', input_texto)
+        url = url_match.group(1) if url_match else input_texto
 
-            # 2. Ajuste para SharePoint Business
-            # Se for link de embed do SharePoint, mudamos para o modo de download
-            if "sharepoint.com" in url:
+        # 2. Ajuste para SharePoint Business
+        # Se for link de embed do SharePoint, mudamos para o modo de download
+        if "sharepoint.com" in url:
 
-                if "embed.aspx" in url:
-                    # Transforma o link de embed em um link de ação de download
-                    url = url.replace("embed.aspx", "download.aspx")
-                elif "download=1" not in url:
-                    # Se for link de compartilhamento normal, força o download
-                    url = url + ("&" if "?" in url else "?") + "download=1"
-            else:
-                # Caso seja OneDrive Pessoal
-                url = url.replace("embed", "download")
+            if "embed.aspx" in url:
+                # Transforma o link de embed em um link de ação de download
+                url = url.replace("embed.aspx", "download.aspx")
+            elif "download=1" not in url:
+                # Se for link de compartilhamento normal, força o download
+                url = url + ("&" if "?" in url else "?") + "download=1"
+        else:
+            # Caso seja OneDrive Pessoal
+            url = url.replace("embed", "download")
 
-            # 3. Faz a requisição
-            response = requests.get(url, timeout=20)
-            response.raise_for_status()
+        # 3. Faz a requisição
+        response = requests.get(url, timeout=20)
 
-            return response.text
-        except Exception as e:
-            st.error(f"Erro ao processar URL: {e}")
-            return None
+        resp = requests.head(url, allow_redirects=True)
+        data_modificacao = resp.headers.get("Last-Modified")
+
+        response.raise_for_status()
+
+        return {"falha": False, "resp": response.text, "data": data_modificacao}
+    except Exception as e:
+        st.error(f"Erro ao processar URL: {e}")
+        return {"falha": True, "resp": None, "data": None}
+
+
+def converte_ultima_modificacao(data_string):
+
+    formato = "%a, %d %b %Y %H:%M:%S %Z"
+    fuso_horario = timezone(timedelta(hours=-3))
+
+    data_obj = datetime.strptime(data_string, formato).replace(tzinfo=timezone.utc)
+    data_obj = data_obj.astimezone(fuso_horario)
+
+    return data_obj
 
 
 def abrir_arquivo_txt(arquivo, colunas=None):

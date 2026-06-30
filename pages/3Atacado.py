@@ -4,6 +4,7 @@ import re
 import io
 import requests
 import numpy as np
+from utils import carregar_dados_onedrive, converte_ultima_modificacao
 
 
 # --- FUNÇÕES E DEFINIÇÕES
@@ -17,37 +18,6 @@ def abrir_arquivo_txt(arquivo, colunas=None):
     except Exception as e:
         st.error(f"Erro ao ler arquivo {e}")
         st.stop()
-
-
-@st.cache_data(ttl=7200, show_spinner=True, scope="session")
-def carregar_dados_onedrive(input_texto):
-    try:
-        # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
-        url_match = re.search(r'src="([^"]+)"', input_texto)
-        url = url_match.group(1) if url_match else input_texto
-
-        # 2. Ajuste para SharePoint Business
-        # Se for link de embed do SharePoint, mudamos para o modo de download
-        if "sharepoint.com" in url:
-
-            if "embed.aspx" in url:
-                # Transforma o link de embed em um link de ação de download
-                url = url.replace("embed.aspx", "download.aspx")
-            elif "download=1" not in url:
-                # Se for link de compartilhamento normal, força o download
-                url = url + ("&" if "?" in url else "?") + "download=1"
-        else:
-            # Caso seja OneDrive Pessoal
-            url = url.replace("embed", "download")
-
-        # 3. Faz a requisição
-        response = requests.get(url, timeout=20)
-        response.raise_for_status()
-
-        return response.text
-    except Exception as e:
-        st.error(f"Erro ao processar URL: {e}")
-        return None
 
 
 COLUNAS_PRODUTOS = [
@@ -120,10 +90,42 @@ st.title(":material/Shopping_Cart: Tabela de Produtos para :red[Atacado]")
 # --- LAYOUT PAGINA
 bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
 if bd_automatico:
-    f_produto_auto = carregar_dados_onedrive(link_produto)
-    f_extra_auto = carregar_dados_onedrive(link_produto_extra)
-    f_tabela_preco_auto = carregar_dados_onedrive(link_tabela_preco)
     desativa_manual = True
+
+    if "dados_onedrive" not in st.session_state:
+        st.session_state.dados_onedrive = carregar_dados_onedrive(link_produto)
+    if "dados_onedrive_extra" not in st.session_state:
+        st.session_state.dados_onedrive_extra = carregar_dados_onedrive(
+            link_produto_extra
+        )
+    if "dados_onedrive_preco_auto" not in st.session_state:
+        st.session_state.dados_onedrive_preco_auto = carregar_dados_onedrive(
+            link_tabela_preco
+        )
+
+    response = st.session_state.dados_onedrive
+    response_extra = st.session_state.dados_onedrive_extra
+    response_preco_auto = st.session_state.dados_onedrive_preco_auto
+
+    if response["falha"]:
+        st.error("Não foi possível pegar produto.txt automaticamente")
+    if response_extra["falha"]:
+        st.error("Não foi possível pegar produto_extra.txt automaticamente")
+    if response_preco_auto["falha"]:
+        st.error("Não foi possível pegar preco_auto.txt automaticamente")
+
+    if response["data"]:
+        ultima_modificacao_dt = converte_ultima_modificacao(response["data"])
+
+        st.write(
+            f"Ultima modificação: :red[{ultima_modificacao_dt.strftime("%H:%M:%S")}]  | :red[{ultima_modificacao_dt.strftime("%d/%m/%Y")}]"
+        )
+
+    f_produto_auto = response["resp"]
+    f_extra_auto = response_extra["resp"]
+    f_tabela_preco_auto = response_preco_auto["resp"]
+
+
 col1, col2, col3 = st.columns(3)
 with col1:
     f_produto = st.file_uploader(

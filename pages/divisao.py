@@ -3,7 +3,12 @@ import pandas as pd
 import re
 import io
 from bancoDados import inicia_conexao_bancoDados, obter_lojas
-from utils import carregar_dados_onedrive, abrir_arquivo_txt, validar_acesso
+from utils import (
+    carregar_dados_onedrive,
+    abrir_arquivo_txt,
+    validar_acesso,
+    converte_ultima_modificacao,
+)
 
 if "perfil" not in st.session_state:
     st.session_state.perfil = "none"
@@ -194,9 +199,34 @@ st.title(":material/Universal_Currency_Alt: LANÇA :blue[DIVISÃO]")
 # --- LAYOUT PAGINA
 bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
 if bd_automatico:
-    f_produto_auto = carregar_dados_onedrive(link_produto)
-    f_extra_auto = carregar_dados_onedrive(link_produto_extra)
     desativa_manual = True
+
+    if "dados_onedrive" not in st.session_state:
+        st.session_state.dados_onedrive = carregar_dados_onedrive(link_produto)
+    if "dados_onedrive_extra" not in st.session_state:
+        st.session_state.dados_onedrive_extra = carregar_dados_onedrive(
+            link_produto_extra
+        )
+
+    response = st.session_state.dados_onedrive
+    response_extra = st.session_state.dados_onedrive_extra
+
+    if response["falha"]:
+        st.error("Não foi possível pegar produto.txt automaticamente")
+    if response_extra["falha"]:
+        st.error("Não foi possível pegar produto_extra.txt automaticamente")
+
+    if response["data"]:
+        ultima_modificacao_dt = converte_ultima_modificacao(response["data"])
+
+        st.write(
+            f"Ultima modificação: :red[{ultima_modificacao_dt.strftime("%H:%M:%S")}]  | :red[{ultima_modificacao_dt.strftime("%d/%m/%Y")}]"
+        )
+
+    f_produto_auto = response["resp"]
+    f_extra_auto = response_extra["resp"]
+
+
 col1, col2, col3 = st.columns(3)
 with col1:
     f_produto = st.file_uploader(
