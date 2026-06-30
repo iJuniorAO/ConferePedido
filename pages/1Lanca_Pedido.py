@@ -5,7 +5,7 @@ import numpy as np
 import io
 import re
 from rapidfuzz import process, fuzz
-from datetime import datetime, time
+from datetime import datetime, time, timedelta, timezone
 from supabase import create_client, Client
 
 #   MELHORIAS
@@ -144,12 +144,16 @@ def carregar_dados_onedrive(input_texto):
 
         # 3. Faz a requisição
         response = requests.get(url, timeout=20)
+
+        resp = requests.head(url, allow_redirects=True)
+        data_modificacao = resp.headers.get("Last-Modified")
+
         response.raise_for_status()
 
-        return response.text
+        return {"falha": False, "resp": response.text, "data": data_modificacao}
     except Exception as e:
         st.error(f"Erro ao processar URL: {e}")
-        return None
+        return {"falha": True, "resp": None, "data": None}
 
 
 @st.cache_data(ttl=86400, show_spinner=True, scope="session")
@@ -241,6 +245,17 @@ def salvar_pedido_banco_dados(loja, tipo, pedido_erp, pedido_original, obs=None)
             )
     else:
         return st.info("Pedidos Atacado não são Salvo no Banco de Dados")
+
+
+def converte_ultima_modificacao(data_string):
+
+    formato = "%a, %d %b %Y %H:%M:%S %Z"
+    fuso_horario = timezone(timedelta(hours=-3))
+
+    data_obj = datetime.strptime(data_string, formato).replace(tzinfo=timezone.utc)
+    data_obj = data_obj.astimezone(fuso_horario)
+
+    return data_obj
 
 
 AGORA = datetime.now()
@@ -349,10 +364,25 @@ with tab1:
     st.header("Upload de Bases de Dados")
     bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
     if bd_automatico:
-        f_produto_auto = carregar_dados_onedrive(link_produto)
-        f_extra_auto = carregar_dados_onedrive(link_produto_extra)
+        response = carregar_dados_onedrive(link_produto)
+        response_extra = carregar_dados_onedrive(link_produto_extra)
         LOJAS = carregar_lojas_banco_dados()
         desativa_manual = True
+
+        if response["falha"]:
+            st.error("Não foi possível pegar produto.txt automaticamente")
+        if response_extra["falha"]:
+            st.error("Não foi possível pegar produto_extra.txt automaticamente")
+
+        if response["data"]:
+            ultima_modificacao_dt = converte_ultima_modificacao(response["data"])
+
+            st.write(
+                f"Ultima modificação: :red[{ultima_modificacao_dt.strftime("%H:%M:%S")}]  | :red[{ultima_modificacao_dt.strftime("%d/%m/%Y")}]"
+            )
+
+        f_produto_auto = response["resp"]
+        f_extra_auto = response_extra["resp"]
 
     col1, col2 = st.columns(2)
     with col1:
