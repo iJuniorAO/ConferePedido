@@ -3,50 +3,41 @@ import pandas as pd
 import re
 import io
 import requests
+from utils import carregar_dados_onedrive, converte_ultima_modificacao
+
 
 # --- FUNÇÕES E DEFINIÇÕES
 def abrir_arquivo_txt(arquivo, colunas=None):
     try:
         if isinstance(arquivo, str):
             arquivo = io.StringIO(arquivo)
-        return pd.read_csv(arquivo, sep="|", header=None, names=colunas, encoding="latin1")
+        return pd.read_csv(
+            arquivo, sep="|", header=None, names=colunas, encoding="latin1"
+        )
     except Exception as e:
         st.error(f"Erro ao ler arquivo {e}")
         st.stop()
-@st.cache_data(ttl=120, scope="session")
-def carregar_dados_onedrive(input_texto):
-    with st.spinner("Pegando Arquivos txt...",show_time=True):
-        try:
-            # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
-            url_match = re.search(r'src="([^"]+)"', input_texto)
-            url = url_match.group(1) if url_match else input_texto
-            
-            # 2. Ajuste para SharePoint Business
-            # Se for link de embed do SharePoint, mudamos para o modo de download
-            if "sharepoint.com" in url:
 
-                if "embed.aspx" in url:
-                    # Transforma o link de embed em um link de ação de download
-                    url = url.replace("embed.aspx", "download.aspx")
-                elif "download=1" not in url:
-                    # Se for link de compartilhamento normal, força o download
-                    url = url + ("&" if "?" in url else "?") + "download=1"
-            else:
-                # Caso seja OneDrive Pessoal
-                url = url.replace("embed", "download")
 
-            # 3. Faz a requisição
-            response = requests.get(url, timeout=20)
-            response.raise_for_status()
-            
-            return response.text
-        except Exception as e:
-            st.error(f"Erro ao processar URL: {e}")
-            return None
-
-COLUNAS_PRODUTOS = ["CodProduto", "CodGrupo", "Descricao", "SiglaUn", "MinVenda", "PrecoUnPd", "CodPrincProd", "Estoq", "Obs", "Grade", "Falta", "Novo", "Prom", "DescMax", "Fam"]
+COLUNAS_PRODUTOS = [
+    "CodProduto",
+    "CodGrupo",
+    "Descricao",
+    "SiglaUn",
+    "MinVenda",
+    "PrecoUnPd",
+    "CodPrincProd",
+    "Estoq",
+    "Obs",
+    "Grade",
+    "Falta",
+    "Novo",
+    "Prom",
+    "DescMax",
+    "Fam",
+]
 COLUNAS_PRODUTOS_EXTRA = ["CodProduto", "Fam", "ListaCodCaract", "DescComplementar"]
-GRUPO = ["SECO", "CONG", "REFR" , "PESO"]
+GRUPO = ["SECO", "CONG", "REFR", "PESO"]
 FORNECEDORES = marcas = [
     "ATALAIA",
     "AYMORE",
@@ -78,7 +69,7 @@ FORNECEDORES = marcas = [
     "TREVO",
     "UAI",
     "UNIBABY",
-    "YPE"
+    "YPE",
 ]
 link_produto = st.secrets["onedrive"]["links"]["produto"]
 link_produto_extra = st.secrets["onedrive"]["links"]["produto_extra"]
@@ -86,35 +77,73 @@ desativa_manual = False
 produtos_cadastrados = 0
 
 # --- CONF PAGINA
-st.set_page_config(
-    page_title="Fazer Pedidos",
-    layout="wide")
+st.set_page_config(page_title="Fazer Pedidos", layout="wide")
 
 st.title(":material/Universal_Currency_Alt: Criar :red[Pedidos]")
 
 # --- LAYOUT PAGINA
 bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
 if bd_automatico:
-    f_produto_auto = carregar_dados_onedrive(link_produto)
-    f_extra_auto = carregar_dados_onedrive(link_produto_extra)
     desativa_manual = True
+
+    if "dados_onedrive" not in st.session_state:
+        st.session_state.dados_onedrive = carregar_dados_onedrive(link_produto)
+    if "dados_onedrive_extra" not in st.session_state:
+        st.session_state.dados_onedrive_extra = carregar_dados_onedrive(
+            link_produto_extra
+        )
+
+    response = st.session_state.dados_onedrive
+    response_extra = st.session_state.dados_onedrive_extra
+
+    if response["falha"]:
+        st.error("Não foi possível pegar produto.txt automaticamente")
+    if response_extra["falha"]:
+        st.error("Não foi possível pegar produto_extra.txt automaticamente")
+
+    if response["data"]:
+        ultima_modificacao_dt = converte_ultima_modificacao(response["data"])
+
+        st.write(
+            f"Ultima modificação: :red[{ultima_modificacao_dt.strftime("%H:%M:%S")}]  | :red[{ultima_modificacao_dt.strftime("%d/%m/%Y")}]"
+        )
+
+    f_produto_auto = response["resp"]
+    f_extra_auto = response_extra["resp"]
+
+
 col1, col2, col3 = st.columns(3)
 with col1:
-    f_produto = st.file_uploader(":material/Barcode: Arquivo 00001produto.txt", disabled=desativa_manual, type="txt")
+    f_produto = st.file_uploader(
+        ":material/Barcode: Arquivo 00001produto.txt",
+        disabled=desativa_manual,
+        type="txt",
+    )
 with col2:
-    f_extra = st.file_uploader(":material/Add: Arquivo 00001produtoextra.txt", disabled=desativa_manual, type="txt")
+    f_extra = st.file_uploader(
+        ":material/Add: Arquivo 00001produtoextra.txt",
+        disabled=desativa_manual,
+        type="txt",
+    )
 with col3:
-    f_cod_filtro = st.file_uploader(":material/Add: Arquivo TXT para :blue[FILTRO]", type="txt")
+    f_cod_filtro = st.file_uploader(
+        ":material/Add: Arquivo TXT para :blue[FILTRO]", type="txt"
+    )
 if f_cod_filtro:
     st.info("Filtro Ativado")
-#if False:
+# if False:
 c1, c2 = st.columns(2)
 with c1:
     st.markdown("### :material/Toggle_On: Excessões: O que retirar da lista")
     ind_div = st.checkbox("[:material/Safety_Divider:]  Divisão")
 with c2:
     st.markdown("### :material/Toggle_On: Filtro")
-    ind_grupo = st.pills(":material/Group_Work: Grupo", options=GRUPO, selection_mode="multi",default=GRUPO)
+    ind_grupo = st.pills(
+        ":material/Group_Work: Grupo",
+        options=GRUPO,
+        selection_mode="multi",
+        default=GRUPO,
+    )
 st.divider()
 
 
@@ -132,32 +161,35 @@ if (f_produto and f_extra) or desativa_manual:
             st.stop()
         df = abrir_arquivo_txt(f_produto, COLUNAS_PRODUTOS)
         df_extra = abrir_arquivo_txt(f_extra, COLUNAS_PRODUTOS_EXTRA)
-    
+
     if f_cod_filtro:
         conteudo = f_cod_filtro.read().decode("utf-8").split()
         df = df[df["CodProduto"].isin(conteudo)]
 
-    
     produtos_cadastrados = len(df)
-    df = df.merge(df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left")
-    df = df[['CodProduto', 'CodGrupo', 'Descricao', 'Estoq', 'Fam', 'ListaCodCaract']]
+    df = df.merge(
+        df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left"
+    )
+    df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam", "ListaCodCaract"]]
 
-    #Cria coluna de fornecedores
+    # Cria coluna de fornecedores
     padrao = "|".join(FORNECEDORES)
-    df["Fornecedor"] = df["Descricao"].str.extract(f"({padrao})", flags=re.IGNORECASE, expand=False)
+    df["Fornecedor"] = df["Descricao"].str.extract(
+        f"({padrao})", flags=re.IGNORECASE, expand=False
+    )
     df["Fornecedor"] = df["Fornecedor"].fillna("Outros")
-    
+
     df["TIPO"] = "SECO"
     df.loc[df["CodGrupo"].isin([9]), "TIPO"] = "CONG"
     df.loc[df["CodGrupo"].isin([14]), "TIPO"] = "REFR"
     df.loc[df["ListaCodCaract"].astype(str).str.contains("000002"), "TIPO"] = "PESO"
-    
+
     #   2. FILTRO DATAFRAME
     df = df[df["Estoq"] > 0].copy()
-    #filtro divisão
+    # filtro divisão
     if ind_div:
         df = df[df["Fam"] != 900000008].copy()
-    #filtro grupo
+    # filtro grupo
     df = df[df["TIPO"].isin(ind_grupo)].copy()
 
     #   --- MOSTRAR INFORMAÇÕES
@@ -169,10 +201,22 @@ if (f_produto and f_extra) or desativa_manual:
 
     df["Fator Conversao"] = df["Descricao"].astype(str).str.split()
     df["Fator Conversao"] = df["Fator Conversao"].str[-1]
-    df["Fator Conversao"] = pd.to_numeric(df["Fator Conversao"],errors="coerce").fillna(1)
-    
+    df["Fator Conversao"] = pd.to_numeric(
+        df["Fator Conversao"], errors="coerce"
+    ).fillna(1)
+
     df_editado = st.data_editor(
-        df[['CodProduto', 'Descricao', 'Fornecedor', 'TIPO', 'Estoq',"Fator Conversao", "Qt Cx"]],
+        df[
+            [
+                "CodProduto",
+                "Descricao",
+                "Fornecedor",
+                "TIPO",
+                "Estoq",
+                "Fator Conversao",
+                "Qt Cx",
+            ]
+        ],
         hide_index=True,
         column_config={
             "Qt Cx": st.column_config.NumberColumn(
@@ -202,24 +246,41 @@ if (f_produto and f_extra) or desativa_manual:
     df_editado["Qt TXT"] = df_editado["Qt Cx"] * df_editado["Fator Conversao"]
     df_editado["Codigo"] = df_editado["CodProduto"].astype(str).str.rjust(13)
 
-    df_editado["Qt_TXT"] = df_editado["Qt TXT"].apply(lambda x: f"{x:09.3f}".replace(".", ","))
+    df_editado["Qt_TXT"] = df_editado["Qt TXT"].apply(
+        lambda x: f"{x:09.3f}".replace(".", ",")
+    )
 
-    st.dataframe(df_editado[["CodProduto", "Descricao", "Fornecedor", "TIPO", "Estoq", "Fator Conversao","Qt Cx", "Qt_TXT"]])
+    st.dataframe(
+        df_editado[
+            [
+                "CodProduto",
+                "Descricao",
+                "Fornecedor",
+                "TIPO",
+                "Estoq",
+                "Fator Conversao",
+                "Qt Cx",
+                "Qt_TXT",
+            ]
+        ]
+    )
     df_editado = df_editado[["Codigo", "Qt_TXT"]]
 
     output = io.StringIO()
     df_editado.to_csv(output, sep="\t", index=False, header=False)
 
     st.download_button(
-    label=f":material/Download: Baixar Pedido",
-    data=output.getvalue(),
-    file_name=f"PedidoTeste.txt",
-    mime="text/plain"
+        label=f":material/Download: Baixar Pedido",
+        data=output.getvalue(),
+        file_name=f"PedidoTeste.txt",
+        mime="text/plain",
     )
-  
+
 
 else:
-    st.info("Insira _'00001produto.txt'_ e _'00001produtoextra.txt'_ para começar a edição")
+    st.info(
+        "Insira _'00001produto.txt'_ e _'00001produtoextra.txt'_ para começar a edição"
+    )
 
 #   --- SIDEBAR
 with st.sidebar:

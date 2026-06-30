@@ -3,115 +3,156 @@ import pandas as pd
 import re
 import io
 from bancoDados import inicia_conexao_bancoDados, obter_lojas
-from utils import carregar_dados_onedrive, abrir_arquivo_txt, validar_acesso
+from utils import (
+    carregar_dados_onedrive,
+    abrir_arquivo_txt,
+    validar_acesso,
+    converte_ultima_modificacao,
+)
 
-if 'perfil' not in st.session_state:
-    st.session_state.perfil = 'none'
+if "perfil" not in st.session_state:
+    st.session_state.perfil = "none"
 
-validar_acesso(['administrador', 'usuario'])
+validar_acesso(["administrador", "usuario"])
 
-def trata_df(resposta, df_produtos):    # irá mesclear a resposta da funçaõ distribuir_estoque com as demais descrições
+
+def trata_df(
+    resposta, df_produtos
+):  # irá mesclear a resposta da funçaõ distribuir_estoque com as demais descrições
 
     df_lista = []
     for filial, dados in resposta.items():
         temp_df = dados.copy()
-        temp_df['filial'] = filial
+        temp_df["filial"] = filial
         df_lista.append(temp_df)
-    
+
     df_completo = pd.concat(df_lista, ignore_index=True)
-    
-    df_pivot = df_completo.pivot(index='CodProduto', columns='filial', values='Qt Cx')
-    df_pivot['Total Distribuído'] = df_pivot.sum(axis=1)
+
+    df_pivot = df_completo.pivot(index="CodProduto", columns="filial", values="Qt Cx")
+    df_pivot["Total Distribuído"] = df_pivot.sum(axis=1)
 
     df_pivot = df_pivot.reset_index()
-    df_produtos = df_produtos[['CodProduto', 'Descricao', 'TIPO','Estoq', 'Fornecedor']]
-    
-    df_merge = df_produtos.merge(df_pivot, on='CodProduto', how='inner')
+    df_produtos = df_produtos[
+        ["CodProduto", "Descricao", "TIPO", "Estoq", "Fornecedor"]
+    ]
 
+    df_merge = df_produtos.merge(df_pivot, on="CodProduto", how="inner")
 
     return df_merge
+
+
 def distribuir_estoque_df(df_divisao, df_loja):
     df_loja = df_loja.copy().reset_index(drop=True)
-    df_loja['Loja'] = df_loja['filial'] + '_' + df_loja['cod_empresa']
-    df_loja['fator'] = df_loja['fator_porcentagem'] / 100
-    df_loja['store_order'] = df_loja.index
-    
+    df_loja["Loja"] = df_loja["filial"] + "_" + df_loja["cod_empresa"]
+    df_loja["fator"] = df_loja["fator_porcentagem"] / 100
+    df_loja["store_order"] = df_loja.index
+
     df_final = (
-        df_divisao[['CodProduto', 'Qt Cx']]
-        .merge(df_loja[['store_order', 'Loja', 'fator']], how='cross')
-        .sort_values(['CodProduto', 'store_order'])
+        df_divisao[["CodProduto", "Qt Cx"]]
+        .merge(df_loja[["store_order", "Loja", "fator"]], how="cross")
+        .sort_values(["CodProduto", "store_order"])
     )
-    df_final['valor_ideal'] = df_final['Qt Cx'] * df_final['fator']
-    df_final['cumsum_ideal'] = df_final.groupby('CodProduto')['valor_ideal'].cumsum()
-    df_final['cumsum_rounded'] = df_final.groupby('CodProduto')['cumsum_ideal'].transform(lambda x: x.round())
-    df_final['Qt Cx'] = (
-        df_final['cumsum_rounded']
-        - df_final.groupby('CodProduto')['cumsum_rounded'].shift(fill_value=0)
+    df_final["valor_ideal"] = df_final["Qt Cx"] * df_final["fator"]
+    df_final["cumsum_ideal"] = df_final.groupby("CodProduto")["valor_ideal"].cumsum()
+    df_final["cumsum_rounded"] = df_final.groupby("CodProduto")[
+        "cumsum_ideal"
+    ].transform(lambda x: x.round())
+    df_final["Qt Cx"] = (
+        df_final["cumsum_rounded"]
+        - df_final.groupby("CodProduto")["cumsum_rounded"].shift(fill_value=0)
     ).astype(int)
-    df_final = df_final[['CodProduto', 'Loja', 'Qt Cx']]
+    df_final = df_final[["CodProduto", "Loja", "Qt Cx"]]
 
-    df_pivoted = df_final.pivot(index='CodProduto', columns='Loja', values='Qt Cx')
+    df_pivoted = df_final.pivot(index="CodProduto", columns="Loja", values="Qt Cx")
 
-    df_pivoted['Total Distribuído'] = df_pivoted.sum(axis=1)
+    df_pivoted["Total Distribuído"] = df_pivoted.sum(axis=1)
 
     df_pivoted.columns.name = None
-    df_pivoted = df_divisao[['CodProduto','Descricao','TIPO','Fator Conversao']].merge(df_pivoted,on='CodProduto')
-    
+    df_pivoted = df_divisao[
+        ["CodProduto", "Descricao", "TIPO", "Fator Conversao"]
+    ].merge(df_pivoted, on="CodProduto")
+
     return df_pivoted
 
+
 def extrai_qt_TXT(df):
-    colunas_fixas = ['cod_empresa','CodProduto', 'Fator Conversao', 'Total Distribuído']
+    colunas_fixas = [
+        "cod_empresa",
+        "CodProduto",
+        "Fator Conversao",
+        "Total Distribuído",
+    ]
     df["CodProduto"] = df["CodProduto"].astype(str).str.rjust(13)
 
     colunas_qt = [c for c in df.columns if c not in colunas_fixas]
     saida = {}
 
     for col in colunas_qt:
-            
-            if df[col].sum()==0:
-                continue
-            
-            nome_qt_txt = f"Qt_TXT_{col}"
-            qt_convertida = df[col] * df["Fator Conversao"]
 
-            df[nome_qt_txt] = qt_convertida.apply(lambda x: f"{x:09.3f}".replace(".", ","))
+        if df[col].sum() == 0:
+            continue
 
-            # saida[col] = df[["CodProduto", nome_qt_txt]]
-            saida[col] = df[["CodProduto", nome_qt_txt]].rename(columns={"CodProduto": "Codigo", nome_qt_txt: "Valor"})
+        nome_qt_txt = f"Qt_TXT_{col}"
+        qt_convertida = df[col] * df["Fator Conversao"]
+
+        df[nome_qt_txt] = qt_convertida.apply(lambda x: f"{x:09.3f}".replace(".", ","))
+
+        # saida[col] = df[["CodProduto", nome_qt_txt]]
+        saida[col] = df[["CodProduto", nome_qt_txt]].rename(
+            columns={"CodProduto": "Codigo", nome_qt_txt: "Valor"}
+        )
 
     return saida
+
 
 def criar_downloads_por_categoria(df_txt_dict, categoria):
     if not df_txt_dict:
         return st.info(f"Nenhum produto {categoria}")
 
-    st.markdown(f'### :blue[{categoria}]', text_alignment='center')
+    st.markdown(f"### :blue[{categoria}]", text_alignment="center")
     for loja, df_loja in df_txt_dict.items():
         output = io.StringIO()
         df_loja.to_csv(output, sep="\t", index=False, header=False)
-        loja_nome = loja.split('_')[0]
-        col1, col2 = st.columns(2, vertical_alignment='center')
+        loja_nome = loja.split("_")[0]
+        col1, col2 = st.columns(2, vertical_alignment="center")
         col1.markdown(loja_nome)
         col2.download_button(
             label=f":material/Download: Baixar",
             data=output.getvalue(),
             file_name=f"DIVISAO_{loja}_{categoria}.txt",
             mime="text/plain",
-            key=f'{categoria}_{loja}'
+            key=f"{categoria}_{loja}",
         )
+
 
 supabase = inicia_conexao_bancoDados()
 todas_lojas = obter_lojas(supabase)
 
-if not todas_lojas['status']:
-    st.markdown('# :material/Close: Nâo é possível acessar as lojas')
-    st.error('Contacte suporte técnico')
+if not todas_lojas["status"]:
+    st.markdown("# :material/Close: Nâo é possível acessar as lojas")
+    st.error("Contacte suporte técnico")
     st.stop()
 
 
-COLUNAS_PRODUTOS = ["CodProduto", "CodGrupo", "Descricao", "SiglaUn", "MinVenda", "PrecoUnPd", "CodPrincProd", "Estoq", "Obs", "Grade", "Falta", "Novo", "Prom", "DescMax", "Fam"]
+COLUNAS_PRODUTOS = [
+    "CodProduto",
+    "CodGrupo",
+    "Descricao",
+    "SiglaUn",
+    "MinVenda",
+    "PrecoUnPd",
+    "CodPrincProd",
+    "Estoq",
+    "Obs",
+    "Grade",
+    "Falta",
+    "Novo",
+    "Prom",
+    "DescMax",
+    "Fam",
+]
 COLUNAS_PRODUTOS_EXTRA = ["CodProduto", "Fam", "ListaCodCaract", "DescComplementar"]
-GRUPO = ["SECO", "CONG", "REFR" , "PESO"]
+GRUPO = ["SECO", "CONG", "REFR", "PESO"]
 FORNECEDORES = marcas = [
     "ATALAIA",
     "AYMORE",
@@ -143,7 +184,7 @@ FORNECEDORES = marcas = [
     "TREVO",
     "UAI",
     "UNIBABY",
-    "YPE"
+    "YPE",
 ]
 link_produto = st.secrets["onedrive"]["links"]["produto"]
 link_produto_extra = st.secrets["onedrive"]["links"]["produto_extra"]
@@ -151,33 +192,68 @@ desativa_manual = False
 produtos_cadastrados = 0
 
 # --- CONF PAGINA
-st.set_page_config(
-    page_title="Fazer Pedidos",
-    layout="wide")
+st.set_page_config(page_title="Fazer Pedidos", layout="wide")
 
 st.title(":material/Universal_Currency_Alt: LANÇA :blue[DIVISÃO]")
 
 # --- LAYOUT PAGINA
 bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
 if bd_automatico:
-    f_produto_auto = carregar_dados_onedrive(link_produto)
-    f_extra_auto = carregar_dados_onedrive(link_produto_extra)
     desativa_manual = True
+
+    if "dados_onedrive" not in st.session_state:
+        st.session_state.dados_onedrive = carregar_dados_onedrive(link_produto)
+    if "dados_onedrive_extra" not in st.session_state:
+        st.session_state.dados_onedrive_extra = carregar_dados_onedrive(
+            link_produto_extra
+        )
+
+    response = st.session_state.dados_onedrive
+    response_extra = st.session_state.dados_onedrive_extra
+
+    if response["falha"]:
+        st.error("Não foi possível pegar produto.txt automaticamente")
+    if response_extra["falha"]:
+        st.error("Não foi possível pegar produto_extra.txt automaticamente")
+
+    if response["data"]:
+        ultima_modificacao_dt = converte_ultima_modificacao(response["data"])
+
+        st.write(
+            f"Ultima modificação: :red[{ultima_modificacao_dt.strftime("%H:%M:%S")}]  | :red[{ultima_modificacao_dt.strftime("%d/%m/%Y")}]"
+        )
+
+    f_produto_auto = response["resp"]
+    f_extra_auto = response_extra["resp"]
+
+
 col1, col2, col3 = st.columns(3)
 with col1:
-    f_produto = st.file_uploader(":material/Barcode: Arquivo 00001produto.txt", disabled=desativa_manual, type="txt")
+    f_produto = st.file_uploader(
+        ":material/Barcode: Arquivo 00001produto.txt",
+        disabled=desativa_manual,
+        type="txt",
+    )
 with col2:
-    f_extra = st.file_uploader(":material/Add: Arquivo 00001produtoextra.txt", disabled=desativa_manual, type="txt")
+    f_extra = st.file_uploader(
+        ":material/Add: Arquivo 00001produtoextra.txt",
+        disabled=desativa_manual,
+        type="txt",
+    )
 with col3:
-    f_cod_filtro = st.file_uploader(":material/Add: Arquivo TXT para :blue[FILTRO]", type="txt")
+    f_cod_filtro = st.file_uploader(
+        ":material/Add: Arquivo TXT para :blue[FILTRO]", type="txt"
+    )
 if f_cod_filtro:
     st.info("Filtro Ativado")
 
 
 st.markdown("### :material/Toggle_On: Filtro:")
-ignora_negativo = st.checkbox(':material/Package: Estoque Negativo', value=True)
+ignora_negativo = st.checkbox(":material/Package: Estoque Negativo", value=True)
 # ind_div = st.checkbox(":material/Safety_Divider: Divisão")
-ind_grupo = st.pills(":material/Group_Work: Grupo", options=GRUPO, selection_mode="multi",default=GRUPO)
+ind_grupo = st.pills(
+    ":material/Group_Work: Grupo", options=GRUPO, selection_mode="multi", default=GRUPO
+)
 st.divider()
 
 if (f_produto and f_extra) or desativa_manual:
@@ -194,26 +270,29 @@ if (f_produto and f_extra) or desativa_manual:
             st.stop()
         df = abrir_arquivo_txt(f_produto, COLUNAS_PRODUTOS)
         df_extra = abrir_arquivo_txt(f_extra, COLUNAS_PRODUTOS_EXTRA)
-    
+
     if f_cod_filtro:
         conteudo = f_cod_filtro.read().decode("utf-8").split()
         df = df[df["CodProduto"].isin(conteudo)]
 
-    
     produtos_cadastrados = len(df)
-    df = df.merge(df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left")
-    df = df[['CodProduto', 'CodGrupo', 'Descricao', 'Estoq', 'Fam', 'ListaCodCaract']]
+    df = df.merge(
+        df_extra[["CodProduto", "ListaCodCaract"]], on="CodProduto", how="left"
+    )
+    df = df[["CodProduto", "CodGrupo", "Descricao", "Estoq", "Fam", "ListaCodCaract"]]
 
-    #Cria coluna de fornecedores
+    # Cria coluna de fornecedores
     padrao = "|".join(FORNECEDORES)
-    df["Fornecedor"] = df["Descricao"].str.extract(f"({padrao})", flags=re.IGNORECASE, expand=False)
+    df["Fornecedor"] = df["Descricao"].str.extract(
+        f"({padrao})", flags=re.IGNORECASE, expand=False
+    )
     df["Fornecedor"] = df["Fornecedor"].fillna("Outros")
-    
+
     df["TIPO"] = "SECO"
     df.loc[df["CodGrupo"].isin([9]), "TIPO"] = "CONG"
     df.loc[df["CodGrupo"].isin([14]), "TIPO"] = "REFR"
     df.loc[df["ListaCodCaract"].astype(str).str.contains("000002"), "TIPO"] = "PESO"
-    
+
     #   2. FILTRO DATAFRAME
     if not ignora_negativo:
         df = df[df["Estoq"] > 0].copy()
@@ -230,30 +309,31 @@ if (f_produto and f_extra) or desativa_manual:
 
     df["Fator Conversao"] = df["Descricao"].astype(str).str.split()
     df["Fator Conversao"] = df["Fator Conversao"].str[-1]
-    df["Fator Conversao"] = pd.to_numeric(df["Fator Conversao"],errors="coerce").fillna(1)
-    
+    df["Fator Conversao"] = pd.to_numeric(
+        df["Fator Conversao"], errors="coerce"
+    ).fillna(1)
 
-    st.markdown('## Lojas')
-    df_lojas = pd.DataFrame(todas_lojas['resposta'])
-    df_lojas = df_lojas.drop(columns='id')
-    fator_porcentagem_total = df_lojas['fator_porcentagem'].sum()
+    st.markdown("## Lojas")
+    df_lojas = pd.DataFrame(todas_lojas["resposta"])
+    df_lojas = df_lojas.drop(columns="id")
+    fator_porcentagem_total = df_lojas["fator_porcentagem"].sum()
 
-    if fator_porcentagem_total!=100.00:
-        st.error(f'Fator de porcentagem atual: {fator_porcentagem_total}, esperado 100%')
-        if st.button('Corrigir'):
-            st.switch_page('Home.py')
+    if fator_porcentagem_total != 100.00:
+        st.error(
+            f"Fator de porcentagem atual: {fator_porcentagem_total}, esperado 100%"
+        )
+        if st.button("Corrigir"):
+            st.switch_page("Home.py")
         st.stop()
 
-    df_lojas = df_lojas[~df_lojas['grupo'].isin(['atacado','teste'])]
+    df_lojas = df_lojas[~df_lojas["grupo"].isin(["atacado", "teste"])]
 
-    
-    
-    with st.expander(':blue[:material/settings:] Mostrar lojas'):
+    with st.expander(":blue[:material/settings:] Mostrar lojas"):
         # df_lojas
 
         st.title("Editar Fator de Divisão")
 
-        df_lojas['fator_porcentagem'] = df_lojas['fator_porcentagem'].astype(float)
+        df_lojas["fator_porcentagem"] = df_lojas["fator_porcentagem"].astype(float)
 
         df_lojas = st.data_editor(
             df_lojas,
@@ -272,55 +352,75 @@ if (f_produto and f_extra) or desativa_manual:
             hide_index=True,
         )
 
-
         # 2. Validação da Soma
-        soma_atual = df_lojas['fator_porcentagem'].sum()
+        soma_atual = df_lojas["fator_porcentagem"].sum()
 
         st.metric("SOMA: fator conversão", f"{soma_atual:.2f}%")
 
         st.bar_chart(df_lojas, x="filial", y="fator_porcentagem")
         if round(soma_atual, 2) == 100.0:
-            st.success(":material/Check: Fator de Conversão correto (100%).")            
+            st.success(":material/Check: Fator de Conversão correto (100%).")
         else:
             diferenca = 100.0 - soma_atual
-            if diferenca<0:
+            if diferenca < 0:
                 st.error(f"Necessário subtrair: {diferenca:.2f}%")
             else:
                 st.error(f"Necessário somar: {diferenca:.2f}%")
             st.text("Ajuste os valores acima para prosseguir com a divisão.")
             st.stop()
 
-    df_lojas_fatorZero = df_lojas[df_lojas['fator_porcentagem']<=0]
+    df_lojas_fatorZero = df_lojas[df_lojas["fator_porcentagem"] <= 0]
     if not df_lojas_fatorZero.empty:
-        with st.expander('Mostrar lojas fator zerado'):
-            st.info(f'Há {len(df_lojas_fatorZero)} lojas sem fator de conversão (zerado)')
+        with st.expander("Mostrar lojas fator zerado"):
+            st.info(
+                f"Há {len(df_lojas_fatorZero)} lojas sem fator de conversão (zerado)"
+            )
             df_lojas_fatorZero
     else:
         st.success("Nenhuma loja com fator de conversão Zerado")
     st.divider()
-    st.markdown('## Selecione os Produtos para Divisão')
-    with st.expander(':blue[:material/Edit:] produtos',expanded=True):
-        st.write('Selecione os produtos que farão parte da divisão: ')
+    st.markdown("## Selecione os Produtos para Divisão")
+    with st.expander(":blue[:material/Edit:] produtos", expanded=True):
+        st.write("Selecione os produtos que farão parte da divisão: ")
         grid_divisao = st.dataframe(
-            df[["CodProduto", "Descricao", "Fornecedor", "TIPO", 'Estoq']],
+            df[["CodProduto", "Descricao", "Fornecedor", "TIPO", "Estoq"]],
             selection_mode="multi-row",
-            on_select='rerun',
+            on_select="rerun",
         )
 
-        itens_divisao = grid_divisao['selection']['rows']
+        itens_divisao = grid_divisao["selection"]["rows"]
         df_divisao = df.iloc[itens_divisao]
 
     if df_divisao.empty:
-        st.error('Selecione ao menos 1 item para divisão')
+        st.error("Selecione ao menos 1 item para divisão")
         st.stop()
 
-    
-    df_divisao = df_divisao[['CodProduto', 'Descricao', 'Estoq', 'Fornecedor', 'TIPO', 'Qt Cx', 'Fator Conversao']]
+    df_divisao = df_divisao[
+        [
+            "CodProduto",
+            "Descricao",
+            "Estoq",
+            "Fornecedor",
+            "TIPO",
+            "Qt Cx",
+            "Fator Conversao",
+        ]
+    ]
 
     st.divider()
-    st.markdown('## Informe Quantidade de Caixa')
+    st.markdown("## Informe Quantidade de Caixa")
     df_editado = st.data_editor(
-        df_divisao[['CodProduto', 'Descricao', 'Fornecedor', 'TIPO', 'Estoq',"Fator Conversao", "Qt Cx"]],
+        df_divisao[
+            [
+                "CodProduto",
+                "Descricao",
+                "Fornecedor",
+                "TIPO",
+                "Estoq",
+                "Fator Conversao",
+                "Qt Cx",
+            ]
+        ],
         hide_index=True,
         column_config={
             "Qt Cx": st.column_config.NumberColumn(
@@ -341,55 +441,54 @@ if (f_produto and f_extra) or desativa_manual:
         width="stretch",
     )
 
-
-    if (df_editado['Qt Cx'] == 0).any():
+    if (df_editado["Qt Cx"] == 0).any():
         st.info('Preencher a "Qt Cx" de TODOS dos produtos selecionados')
         st.stop()
 
     st.divider()
-    with st.expander(':blue[:material/Visibility:] Conferir Divisão'):
-        resposta = distribuir_estoque_df(df_editado,df_lojas)
+    with st.expander(":blue[:material/Visibility:] Conferir Divisão"):
+        resposta = distribuir_estoque_df(df_editado, df_lojas)
 
-        df_cong = resposta[resposta['TIPO'].isin(['CONG','REFR'])].copy()
-        df_peso = resposta[resposta['TIPO'] == 'PESO'].copy()
-        df_seco = resposta[resposta['TIPO'] == 'SECO']
-        
+        df_cong = resposta[resposta["TIPO"].isin(["CONG", "REFR"])].copy()
+        df_peso = resposta[resposta["TIPO"] == "PESO"].copy()
+        df_seco = resposta[resposta["TIPO"] == "SECO"]
+
         st.markdown("# Todas Lojas (Qt Cx)")
         resposta
-        
-        st.markdown('### Divisão :blue[SECO]')
+
+        st.markdown("### Divisão :blue[SECO]")
         if df_seco.empty:
-            st.info('Nenhum item SECO selecionado')
+            st.info("Nenhum item SECO selecionado")
         else:
             df_seco
-        
-        st.markdown('### Divisão :blue[CONG/REFR]')
+
+        st.markdown("### Divisão :blue[CONG/REFR]")
         if df_cong.empty:
-            st.info('Nenhum item CONG/REFR selecionado')
+            st.info("Nenhum item CONG/REFR selecionado")
         else:
             df_cong
 
-        st.markdown('### Divisão :blue[PESO]')
+        st.markdown("### Divisão :blue[PESO]")
         if df_peso.empty:
-            st.info('Nenhum item PESO selecionado')
+            st.info("Nenhum item PESO selecionado")
         else:
             df_peso
 
-    df_peso = df_peso.drop(columns=['TIPO','Descricao'])
-    df_seco = df_seco.drop(columns=['TIPO','Descricao'])
-    df_cong = df_cong.drop(columns=['TIPO','Descricao'])
+    df_peso = df_peso.drop(columns=["TIPO", "Descricao"])
+    df_seco = df_seco.drop(columns=["TIPO", "Descricao"])
+    df_cong = df_cong.drop(columns=["TIPO", "Descricao"])
 
     df_txt_seco = extrai_qt_TXT(df_seco)
     df_txt_cong = extrai_qt_TXT(df_cong)
     df_txt_peso = extrai_qt_TXT(df_peso)
 
     st.divider()
-    st.markdown("# DIVISÃO TXT", text_alignment='center')
-    col_txt_seco, col_txt_cong, col_txt_peso = st.columns(3, gap='medium')
+    st.markdown("# DIVISÃO TXT", text_alignment="center")
+    col_txt_seco, col_txt_cong, col_txt_peso = st.columns(3, gap="medium")
 
     with col_txt_seco:
-        criar_downloads_por_categoria(df_txt_seco, 'SECO')
+        criar_downloads_por_categoria(df_txt_seco, "SECO")
     with col_txt_cong:
-        criar_downloads_por_categoria(df_txt_cong, 'CONG')
+        criar_downloads_por_categoria(df_txt_cong, "CONG")
     with col_txt_peso:
-        criar_downloads_por_categoria(df_txt_peso, 'PESO')
+        criar_downloads_por_categoria(df_txt_peso, "PESO")

@@ -3,53 +3,63 @@ from supabase import create_client, Client
 import pandas as pd
 import time
 
-@st.dialog("Processando...",dismissible=False)
+
+@st.dialog("Processando...", dismissible=False)
 def rerun_bd(msg="Ação Realizada com Sucesso !"):
     st.success(msg)
-    placeholder=st.space()
+    placeholder = st.space()
 
-    for seg in range(3,-1,-1):
-        placeholder.metric("Aguarde...",f"{seg}")
+    for seg in range(3, -1, -1):
+        placeholder.metric("Aguarde...", f"{seg}")
         time.sleep(1)
-    
+
     time.sleep(0.5)
-    
+
     st.rerun()
+
+
 def valida_nova_loja_to_dict(df_validacao):
     if df_validacao.empty:
         st.error(":material/Warning: Preencha: Código, Filial, CNPJ e Grupo")
         st.stop()
         st.stop()
-    df_validacao = df_validacao.applymap(lambda x: x[0] if isinstance (x,list) else x)
-    df_validacao = df_validacao.applymap(lambda x: x.upper() if isinstance (x,str) else x)
+    df_validacao = df_validacao.applymap(lambda x: x[0] if isinstance(x, list) else x)
+    df_validacao = df_validacao.applymap(
+        lambda x: x.upper() if isinstance(x, str) else x
+    )
     df_validacao = df_validacao.to_dict(orient="records")
-    
+
     if not df_validacao[0]["CNPJ"].isdigit():
         st.error(":material/Warning: CNPJ deve conter apenas números")
         st.stop()
-    if len(df_validacao[0]["CNPJ"])!=14:
+    if len(df_validacao[0]["CNPJ"]) != 14:
         st.error(":material/Warning: CNPJ deve conter 14 números")
         st.stop()
-    
+
     return df_validacao
+
+
 def cadastra_loja_bd(dados):
     try:
-        reposta = (
-            supabase.table("Lojas")
-            .insert(dados)
-            .execute()
-        )
+        reposta = supabase.table("Lojas").insert(dados).execute()
         rerun_bd(f"Loja {dados[0]["Filial"]} Cadastrada com sucesso")
     except Exception as e:
-        if "uplicate key value violates unique constraint" in str(e) and "Lojas_pkey" in str(e):
+        if "uplicate key value violates unique constraint" in str(
+            e
+        ) and "Lojas_pkey" in str(e):
             st.error("Erro Código já cadastrado")
-        elif "uplicate key value violates unique constraint" in str(e) and "Lojas_CNPJ_key" in str(e):
+        elif "uplicate key value violates unique constraint" in str(
+            e
+        ) and "Lojas_CNPJ_key" in str(e):
             st.error("Erro CNPJ já cadastrado")
-        elif "uplicate key value violates unique constraint" in str(e) and "unq_lojas_filial" in str(e):
+        elif "uplicate key value violates unique constraint" in str(
+            e
+        ) and "unq_lojas_filial" in str(e):
             st.error("Erro Filial já cadastrada")
-        else:    
+        else:
             st.error(f"Erro {e}")
         st.stop()
+
 
 def obter_todas_lojas():
     try:
@@ -57,23 +67,29 @@ def obter_todas_lojas():
         return resposta.data
     except Exception as e:
         print(f"Erro ao buscar lojas: {e}")
-        return [] 
+        return []
+
+
 def alterar_grupo():
     st.markdown("### Alterar Grupo:")
-    col1, col2 = st.columns(2,vertical_alignment="bottom")
+    col1, col2 = st.columns(2, vertical_alignment="bottom")
     with col1:
-        Loja_Selecionada = st.selectbox("Lojas", df_lojas["Filial"],key="2")
+        Loja_Selecionada = st.selectbox("Lojas", df_lojas["Filial"], key="2")
     with col2:
         Grupo_Selecionado = st.selectbox("Grupo", df_lojas["Grupo"].unique())
-    if st.button("Confirmar Alteração",width="stretch"):
+    if st.button("Confirmar Alteração", width="stretch"):
         resposta = (
             supabase.table("Lojas")
-            .update({"Grupo":Grupo_Selecionado})
+            .update({"Grupo": Grupo_Selecionado})
             .eq("Filial", Loja_Selecionada)
             .execute()
         )
-        rerun_bd(f":material/Check: {resposta.data[0]["Filial"]} agora é {resposta.data[0]["Grupo"]}")
+        rerun_bd(
+            f":material/Check: {resposta.data[0]["Filial"]} agora é {resposta.data[0]["Grupo"]}"
+        )
     st.divider()
+
+
 def adicionar_loja():
 
     st.markdown("### Adicionar Loja:")
@@ -86,7 +102,7 @@ def adicionar_loja():
             "Grupo": st.column_config.TextColumn("Grupo", required=True),
         },
         num_rows="dynamic",
-        width="stretch"
+        width="stretch",
     )
 
     if st.button("Cadastrar Nova Loja", width="stretch"):
@@ -94,46 +110,69 @@ def adicionar_loja():
         cadastra_loja_bd(dict_Novas_lojas)
 
     st.divider()
+
+
 def excluir_loja():
     st.markdown("### Excluir Loja")
 
     loja_excluir = [loja["Filial"] for loja in lojas]
 
-    loja_excluir_selecionada = st.selectbox("Selecione a loja que deseja excluir", loja_excluir)
+    loja_excluir_selecionada = st.selectbox(
+        "Selecione a loja que deseja excluir", loja_excluir
+    )
     if st.button("Excluir", width="stretch"):
         try:
-            resposta = supabase.table("Lojas").delete().eq("Filial", loja_excluir_selecionada).execute()
+            resposta = (
+                supabase.table("Lojas")
+                .delete()
+                .eq("Filial", loja_excluir_selecionada)
+                .execute()
+            )
             rerun_bd(f"Loja {loja_excluir_selecionada} excluída com sucesso")
         except Exception as e:
             st.error(f"Erro ao excluir {e}")
             st.stop()
+
+
 def alterar_fator_porcentagem():
     st.divider()
     st.markdown("### Alterar Fator Porcentagem")
 
     c1, c2 = st.columns(2)
     with c1:
-        Loja_Selecionada = st.selectbox("Lojas", df_lojas["Filial"],key="1")
+        Loja_Selecionada = st.selectbox("Lojas", df_lojas["Filial"], key="1")
     with c2:
-        novo_fator_porcentagem = st.number_input("Digite Novo Fator de Conversão",min_value=0.0,max_value=100.0,value=0.0,placeholder="Digite Novo Valor",key="3")
-    
-    if st.button("Altera Fator de Porcentagem",width="stretch"):
+        novo_fator_porcentagem = st.number_input(
+            "Digite Novo Fator de Conversão",
+            min_value=0.0,
+            max_value=100.0,
+            value=0.0,
+            placeholder="Digite Novo Valor",
+            key="3",
+        )
+
+    if st.button("Altera Fator de Porcentagem", width="stretch"):
         resposta = (
             supabase.table("Lojas")
-            .update({"fator_porcentagem":novo_fator_porcentagem})
+            .update({"fator_porcentagem": novo_fator_porcentagem})
             .eq("Filial", Loja_Selecionada)
             .execute()
         )
-        rerun_bd(f":material/Check: {resposta.data[0]["Filial"]} agora é {resposta.data[0]["fator_porcentagem"]}")
+        rerun_bd(
+            f":material/Check: {resposta.data[0]["Filial"]} agora é {resposta.data[0]["fator_porcentagem"]}"
+        )
     st.divider()
 
+
 # --- CONFIGURAÇÃO PAGINA ---
-st.set_page_config(page_title="Sistema Mumix", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Sistema Mumix", layout="wide", initial_sidebar_state="collapsed"
+)
 
-url=st.secrets["connections"]["supabase"]["url"]
-key=st.secrets["connections"]["supabase"]["key"]
+url = st.secrets["connections"]["supabase"]["url"]
+key = st.secrets["connections"]["supabase"]["key"]
 
-supabase: Client = create_client(url,key)
+supabase: Client = create_client(url, key)
 
 st.title(":material/Home: Página inicial")
 
@@ -144,7 +183,7 @@ st.divider()
 
 st.markdown("## Acessar páginas:")
 
-col1,col2, col3 = st.columns([2,2,1])
+col1, col2, col3 = st.columns([2, 2, 1])
 with col1:
     st.markdown("### :green[:material/Cloud_Done:] ATIVOS")
 
@@ -184,27 +223,30 @@ st.divider()
 
 st.markdown("## Cadastro Lojas:")
 if st.toggle("Alterar Cadastro"):
-    st.markdown("## :red[:material/Exclamation: AVISO - As Alterações não podem ser desfeitas ]")
+    st.markdown(
+        "## :red[:material/Exclamation: AVISO - As Alterações não podem ser desfeitas ]"
+    )
     lojas = obter_todas_lojas()
     df_lojas = pd.DataFrame(lojas)
 
-    st.write(f"{len(df_lojas)-1} Lojas Cadastradas")   # lojas -1 de teste
+    st.write(f"{len(df_lojas)-1} Lojas Cadastradas")  # lojas -1 de teste
 
     fator_porc = df_lojas["fator_porcentagem"].sum()
-    if fator_porc!=100:
-        st.error(f":material/Close: Soma do Fator de Porcentagem {fator_porc}% o correto é 100%")
-        #continuar
+    if fator_porc != 100:
+        st.error(
+            f":material/Close: Soma do Fator de Porcentagem {fator_porc}% o correto é 100%"
+        )
+        # continuar
 
     mostrar_grupo_teste = st.toggle("Mostrar Lojas Teste")
 
     if mostrar_grupo_teste:
         df_lojas
     else:
-        df_lojas[df_lojas["Grupo"]!="TESTE"]
+        df_lojas[df_lojas["Grupo"] != "TESTE"]
 
     #   Alterar grupo não está alterando no bd
     alterar_grupo()
     adicionar_loja()
     excluir_loja()
     alterar_fator_porcentagem()
-

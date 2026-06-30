@@ -7,6 +7,7 @@ import re
 from rapidfuzz import process, fuzz
 from datetime import datetime, time, timedelta, timezone
 from supabase import create_client, Client
+from utils import carregar_dados_onedrive, converte_ultima_modificacao
 
 #   MELHORIAS
 #
@@ -121,42 +122,9 @@ def encontra_melhor_match(descricao_erro, escolhas_base, threshold=60):
     return pd.Series([None, 0], index=["Descricao_Sugerida", "Score_Similaridade"])
 
 
-@st.cache_data(ttl=7200, show_spinner=True, scope="session")
-def carregar_dados_onedrive(input_texto):
-    try:
-        # 1. Limpeza: Se o usuário colou o <iframe>, extrai apenas a URL
-        url_match = re.search(r'src="([^"]+)"', input_texto)
-        url = url_match.group(1) if url_match else input_texto
-
-        # 2. Ajuste para SharePoint Business
-        # Se for link de embed do SharePoint, mudamos para o modo de download
-        if "sharepoint.com" in url:
-
-            if "embed.aspx" in url:
-                # Transforma o link de embed em um link de ação de download
-                url = url.replace("embed.aspx", "download.aspx")
-            elif "download=1" not in url:
-                # Se for link de compartilhamento normal, força o download
-                url = url + ("&" if "?" in url else "?") + "download=1"
-        else:
-            # Caso seja OneDrive Pessoal
-            url = url.replace("embed", "download")
-
-        # 3. Faz a requisição
-        response = requests.get(url, timeout=20)
-
-        resp = requests.head(url, allow_redirects=True)
-        data_modificacao = resp.headers.get("Last-Modified")
-
-        response.raise_for_status()
-
-        return {"falha": False, "resp": response.text, "data": data_modificacao}
-    except Exception as e:
-        st.error(f"Erro ao processar URL: {e}")
-        return {"falha": True, "resp": None, "data": None}
-
-
-@st.cache_data(ttl=86400, show_spinner=True, scope="session")
+@st.cache_data(
+    ttl=86400, show_spinner="Carregando dados lojas", show_time=True, scope="session"
+)
 def carregar_lojas_banco_dados():
     try:
         resposta = supabase.table("Lojas").select("Filial").order("Filial").execute()
@@ -245,17 +213,6 @@ def salvar_pedido_banco_dados(loja, tipo, pedido_erp, pedido_original, obs=None)
             )
     else:
         return st.info("Pedidos Atacado não são Salvo no Banco de Dados")
-
-
-def converte_ultima_modificacao(data_string):
-
-    formato = "%a, %d %b %Y %H:%M:%S %Z"
-    fuso_horario = timezone(timedelta(hours=-3))
-
-    data_obj = datetime.strptime(data_string, formato).replace(tzinfo=timezone.utc)
-    data_obj = data_obj.astimezone(fuso_horario)
-
-    return data_obj
 
 
 AGORA = datetime.now()
@@ -364,10 +321,18 @@ with tab1:
     st.header("Upload de Bases de Dados")
     bd_automatico = st.toggle("Deseja pegar arquivos automaticamente?", value=True)
     if bd_automatico:
-        response = carregar_dados_onedrive(link_produto)
-        response_extra = carregar_dados_onedrive(link_produto_extra)
         LOJAS = carregar_lojas_banco_dados()
         desativa_manual = True
+
+        if "dados_onedrive" not in st.session_state:
+            st.session_state.dados_onedrive = carregar_dados_onedrive(link_produto)
+        if "dados_onedrive_extra" not in st.session_state:
+            st.session_state.dados_onedrive_extra = carregar_dados_onedrive(
+                link_produto_extra
+            )
+
+        response = st.session_state.dados_onedrive
+        response_extra = st.session_state.dados_onedrive_extra
 
         if response["falha"]:
             st.error("Não foi possível pegar produto.txt automaticamente")
