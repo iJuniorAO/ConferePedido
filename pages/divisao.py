@@ -322,7 +322,13 @@ if (f_produto and f_extra) or desativa_manual:
         st.error(
             f"Fator de porcentagem atual: {fator_porcentagem_total}, esperado 100%"
         )
-        if st.button("Corrigir"):
+        st.dataframe(
+            df_lojas[["filial", "grupo", "fator_porcentagem"]].sort_values(
+                ["fator_porcentagem"], ascending=False
+            ),
+            hide_index=True,
+        )
+        if st.button("Corrigir", width="stretch"):
             st.switch_page("Home.py")
         st.stop()
 
