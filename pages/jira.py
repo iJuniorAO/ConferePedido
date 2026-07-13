@@ -158,7 +158,11 @@ if not df.empty:
     # --- ABAS DA INTERFACE PRINCIPAL ---
     # aba_board = st.tabs(["📊 Quadro (Board)"])[0] if "aba_board" not in locals() else aba_board
     aba_board, aba_view, aba_coleta = st.tabs(
-        ["📊 Quadro (Board)", "📋 Painel de Tarefas (detalhado)", "📦 Ordem Coleta"]
+        [
+            ":material/Bar_Chart: Quadro (Board)",
+            ":material/Docs: Painel de Tarefas (detalhado)",
+            ":material/Package: Ordem Coleta",
+        ]
     )
 
     # --- ABA BOARD: VISUALIZAÇÃO EM COLUNAS ---
