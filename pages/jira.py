@@ -305,11 +305,19 @@ with aba_board:
                 df_loja_coleta = df_coleta[df_coleta["loja"] == loja].copy()
                 df_loja_coleta["Coletado"] = False
                 df_loja_coleta = df_loja_coleta[
-                    ["cod_produto", "qtd_produto", "desc_produto", "key", "Coletado"]
+                    [
+                        "cod_produto",
+                        "desc_produto",
+                        "qtd_produto",
+                        "desc_produto",
+                        "key",
+                        "Coletado",
+                    ]
                 ]
                 # Renomeia colunas para melhor visualização
                 df_loja_coleta.columns = [
                     "Cód. Produto",
+                    "Produto",
                     "Qtd",
                     "Descrição",
                     "Ticket",
