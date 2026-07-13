@@ -136,13 +136,13 @@ def encontra_un_compra(df):
     return ""
 
 
-def define_un_compra(df):
+def define_un_compra(df, msg, padrao=None):
     if "kg" in df["Ucom"].values:
         st.warning("Fator de Conversão tem KG")
     escolha_conversao = st.segmented_control(
-        "Informar Unidade de Compra",
+        f"{msg} Unidade de Compra",
         ["CX/FD", "UN", "KG"],
-        default=None,
+        default=padrao,
         width="stretch",
     )
     return escolha_conversao
@@ -361,17 +361,17 @@ st.markdown("## :material/Input: Informações")
 
 st.markdown("#### 1. Selecionar :blue[Unidade de Compra]")
 unidade_compra = encontra_un_compra(resposta_xml["df"])
-if not unidade_compra:
-    unidade_compra = define_un_compra(resposta_xml["df"])
-else:
-    st.success("Unidade de Compra [cx ou un] encontrado automaticamente")
-if not unidade_compra:
-    st.error("Necessário escolher fator de conversão")
-    pendencia_calculo = True
-    # st.stop()
-else:
-    pendencia_calculo = False
 
+if unidade_compra:
+    st.success("Unidade de Compra [cx ou un] encontrado automaticamente")
+    unidade_compra = define_un_compra(
+        resposta_xml["df"], msg="Alterar", padrao=unidade_compra
+    )
+else:
+    st.error("Unidade de Compra [cx ou un] **NÃO** foi encontrado automaticamente")
+    unidade_compra = define_un_compra(resposta_xml["df"], msg="Definir")
+
+# unidade_compra = define_un_compra(resposta_xml["df"], msg_un_compra)
 
 if not pendencia_calculo:
     st.space()
