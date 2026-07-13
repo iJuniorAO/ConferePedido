@@ -14,6 +14,7 @@ def processa_XML(xml_file):
 
     info_nfe = data["nfeProc"]["NFe"]["infNFe"]
     detalhes = info_nfe["det"]
+    det_cep = info_nfe["dest"]["enderDest"]["CEP"]
     total = info_nfe["total"]
     emitente = info_nfe["emit"]
     det_pag = info_nfe["pag"]["detPag"]
@@ -113,6 +114,7 @@ def processa_XML(xml_file):
         "Boletos": Boletos,
         "pgto": pgto,
         "outras_despesas": outras_despesas,
+        "CEP": det_cep,
     }
 
 
@@ -285,6 +287,7 @@ def valida_calculo():
 # --- Interface Streamlit ---
 st.set_page_config(page_title="Calcula NFe", layout="wide")
 HOJE = datetime.now().date()
+CEP_PADRAO = "32183050"
 st.markdown("# :material/Docs: Calculo NF-e de Compras")
 st.markdown("## :material/Upload: Importação de Arquivo xml")
 desconto_boleto_padrao = ["LATICINIOS BELINHO"]  # somente nome fantasia completo
@@ -310,12 +313,16 @@ meio_pagamento = {
 }
 
 with st.sidebar:
-    st.markdown("# :material/Filter_Alt: Filtros")
+    cep_recebimento = st.text_input(
+        "CEP Recebimento NFe", CEP_PADRAO, 8, icon=":material/markunread_mailbox:"
+    )
+    st.markdown("## :material/Filter_Alt: Filtros")
     desconsidera_bonificacao = st.number_input(
-        "% Para desconsiderar na Bonificação",
+        "- % Para desconsiderar na Bonificação",
         min_value=0.00,
         max_value=100.00,
         value=10.00,
+        icon=":material/filter_alt:",
     )
     desconsidera_bonificacao = 1 - (desconsidera_bonificacao / 100)
 
@@ -590,6 +597,13 @@ if not pendencia_calculo:
         st.divider()
 
     st.markdown("## :material/Post: Relatório para Compras")
+
+    if resposta_xml["CEP"] != cep_recebimento:
+        st.error("CEP Divergente")
+        st.caption(
+            f"CEP Recebimento: :blue[{cep_recebimento}] | CEP NFe: :red[{resposta_xml["CEP"]}]"
+        )
+
     st.markdown(
         f"#### Emitente: :blue[{resposta_xml["emitente"]['emitente_fantasia']}] - {resposta_xml["emitente"]["emitente_nome"]}"
     )
