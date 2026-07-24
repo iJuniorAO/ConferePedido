@@ -120,7 +120,7 @@ def layout_guia_cega(resposta_xml):
     df_log["Un por Cx"] = ""
     df_log["Qtd Cx Contada"] = ""
     df_log["Data Validade"] = ""
-    df_log["Qtd Palete"] = ""
+    df_log["Cx por Palete"] = ""
 
     coluna1, coluna2 = st.columns(2, vertical_alignment="bottom")
     with coluna1:
