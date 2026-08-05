@@ -201,6 +201,10 @@ def calculos(
         df["Valor Original"] / df["Valor Original"].sum()
     ) * outras_despesas
 
+    df["Valor Desconto Manual"] = (
+        desconto_manual * df["Valor Original"] / df["Valor Original"].sum()
+    )
+
     df = define_cx_un()
 
     if uploaded_file_2:
@@ -250,12 +254,14 @@ def calculos(
             + df["Valor Outras Despesas"]
             + df["V_FCPST"]
             - df["Valor Desconto"]
+            - df["Valor Desconto Manual"]
         )
         total_impostos = (
             df["V_ST"].sum()
             + df["V_IPI"].sum()
             + df["Valor Guia"].sum()
             - df["Valor Desconto"].sum()
+            - df["Valor Desconto Manual"].sum()
         )
 
     df["Valor Cx"] = df["Valor Total"] / df["Qt de Cx"]
@@ -374,18 +380,32 @@ else:
 # unidade_compra = define_un_compra(resposta_xml["df"], msg_un_compra)
 
 if not pendencia_calculo:
-    st.space()
-    st.markdown("#### 2. Informe se irá :blue[Ignorar Imposto] - Desconto em Boleto")
-    if resposta_xml["emitente"]["emitente_fantasia"] in desconto_boleto_padrao:
-        st.caption(
-            f"Fornecedor: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] | Desconto em boleto padrão - Ignora imposto ativado"
+    colDescontoImposto, colDescontoBoleto = st.columns(2)
+    with colDescontoImposto:
+        st.space()
+        st.markdown(
+            "#### 2.1 Informe se irá :blue[Ignorar Imposto] - Desconto em Boleto"
         )
-        ignora_impostos = True
-    else:
-        ignora_impostos = False
-    ignora_impostos = st.toggle(
-        "Não considerar imposto ST (desconto em boleto)", value=ignora_impostos
-    )
+        if resposta_xml["emitente"]["emitente_fantasia"] in desconto_boleto_padrao:
+            st.caption(
+                f"Fornecedor: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] | Desconto em boleto padrão - Ignora imposto ativado"
+            )
+            ignora_impostos = True
+        else:
+            ignora_impostos = False
+        ignora_impostos = st.toggle(
+            "Não considerar imposto ST (desconto em boleto)", value=ignora_impostos
+        )
+
+    with colDescontoBoleto:
+        st.space()
+        st.markdown("#### 2.2 Informe desconto em boleto")
+        desconto_manual = st.number_input(
+            "Desconto em boleto (fora da NFe)",
+            min_value=0.0,
+            max_value=resposta_xml["total_nf"],
+            value=0.0,
+        )
 
 if not pendencia_calculo:
     st.space()
