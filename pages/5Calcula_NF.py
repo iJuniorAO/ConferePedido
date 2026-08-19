@@ -197,14 +197,6 @@ def calculos(
         )
         return guia_ST
 
-    df["Valor Outras Despesas"] = (
-        df["Valor Original"] / df["Valor Original"].sum()
-    ) * outras_despesas
-
-    df["Valor Desconto Manual"] = (
-        desconto_manual * df["Valor Original"] / df["Valor Original"].sum()
-    )
-
     df = define_cx_un()
 
     if uploaded_file_2:
@@ -215,7 +207,6 @@ def calculos(
         df["Qt de Cx"] = df["Qt de Cx Bon"].fillna(0) + df["Qt de Cx"]
         df["Qt un"] = df["Qt un Bon"].fillna(0) + df["Qt un"]
 
-    # Regra de negocio
     # Guia se ICMS-ST for 00 ou 20
     linhas_com_guia = df[df["ICMS_CST"].isin(["00", "20"])]
 
@@ -242,19 +233,35 @@ def calculos(
     if "Valor Guia" not in df.columns:
         df["Valor Guia"] = 0
 
+    # Rateio dos valores pré Valor com ST
+    df["Valor Outras Despesas"] = (
+        df["Valor Original"] / df["Valor Original"].sum()
+    ) * outras_despesas
+
+    df["Valor com ST"] = (
+        df["Valor Original"]
+        + df["V_ST"]
+        + df["V_IPI"]
+        + df["Valor Guia"]
+        + df["Valor Outras Despesas"]
+        + df["V_FCPST"]
+        - df["Valor Desconto"]
+    )
+
+    # Rateio dos valores pós Valor com ST
+    df["Valor Desconto Manual"] = (
+        desconto_manual * df["Valor com ST"] / df["Valor com ST"].sum()
+    )
+    df["Valor Frete Manual"] = (
+        valor_frete * df["Valor com ST"] / df["Valor com ST"].sum()
+    )
+
     if ignora_impostos:
         df["Valor Total"] = df["Valor Original"]
         total_impostos = 0
     else:
         df["Valor Total"] = (
-            df["Valor Original"]
-            + df["V_ST"]
-            + df["V_IPI"]
-            + df["Valor Guia"]
-            + df["Valor Outras Despesas"]
-            + df["V_FCPST"]
-            - df["Valor Desconto"]
-            - df["Valor Desconto Manual"]
+            df["Valor com ST"] - df["Valor Desconto Manual"] + df["Valor Frete Manual"]
         )
         total_impostos = (
             df["V_ST"].sum()
@@ -262,6 +269,7 @@ def calculos(
             + df["Valor Guia"].sum()
             - df["Valor Desconto"].sum()
             - df["Valor Desconto Manual"].sum()
+            + df["Valor Frete Manual"].sum()
         )
 
     df["Valor Cx"] = df["Valor Total"] / df["Qt de Cx"]
@@ -380,12 +388,10 @@ else:
 # unidade_compra = define_un_compra(resposta_xml["df"], msg_un_compra)
 
 if not pendencia_calculo:
-    colDescontoImposto, colDescontoBoleto = st.columns(2)
+    colDescontoImposto, colDescontoBoleto, colRateioFrete = st.columns(3)
     with colDescontoImposto:
         st.space()
-        st.markdown(
-            "#### 2.1 Informe se irá :blue[Ignorar Imposto] - Desconto em Boleto"
-        )
+        st.markdown("#### 2.1 Informe se irá :blue[Ignorar Imposto]")
         if resposta_xml["emitente"]["emitente_fantasia"] in desconto_boleto_padrao:
             st.caption(
                 f"Fornecedor: :blue[{resposta_xml["emitente"]["emitente_fantasia"]}] | Desconto em boleto padrão - Ignora imposto ativado"
@@ -394,7 +400,8 @@ if not pendencia_calculo:
         else:
             ignora_impostos = False
         ignora_impostos = st.toggle(
-            "Não considerar imposto ST (desconto em boleto)", value=ignora_impostos
+            "Não considerar imposto ST (valor do desconto está em boleto)",
+            value=ignora_impostos,
         )
 
     with colDescontoBoleto:
@@ -406,6 +413,20 @@ if not pendencia_calculo:
             max_value=resposta_xml["total_nf"],
             value=0.0,
         )
+    with colRateioFrete:
+        st.space()
+        st.markdown("#### 2.3 Informe rateio de frete")
+        valor_frete = st.number_input(
+            "Valor do frete para adicionar no rateio",
+            min_value=0.0,
+            value=0.0,
+        )
+
+if desconto_manual and valor_frete:
+    st.error(":material/warning: Foi informado desconto em Boleto e Rateio de Frete")
+    st.caption(
+        "Calculo seguirá normlamente porém é necessário validar os valores manualmente"
+    )
 
 if not pendencia_calculo:
     st.space()
@@ -471,6 +492,9 @@ if not pendencia_calculo:
                 "Valor Guia",
                 "Valor Outras Despesas",
                 "Valor Desconto",
+                "Valor com ST",
+                "Valor Desconto Manual",
+                "Valor Frete Manual",
                 "Valor Total",
                 "Ucom",
                 "qt_Com",
@@ -479,6 +503,7 @@ if not pendencia_calculo:
                 "Valor Cx",
                 "Valor un",
             ],
+            hide_index=True,
         )
 
     diferenca_nf_total_calculado = (
