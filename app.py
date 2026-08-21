@@ -2,6 +2,9 @@ import streamlit as st
 
 st.set_page_config(page_title="Sistema Mumix", layout="wide")
 
+if "perfil" not in st.session_state:
+    st.session_state["perfil"] = {"role": "client"}
+
 # login
 login_page = st.Page("login.py", title="Login", icon=":material/login:")
 home_page = st.Page("Home.py", title="Home", icon=":material/home:")
@@ -34,6 +37,14 @@ plan_dev_page = st.Page(
 pedidos_page = st.Page(
     "pages/4Pedidos.py", title="Pedidos Feitos", icon=":material/shopping_cart:"
 )
+
+trocas_page = st.Page(
+    "pages/jira.py",
+    title="Trocas e Devolucoes",
+    icon=":material/swap_horizontal_circle:",
+)
+
+
 validade = st.Page("pages/Validade.py", title="Validade", icon=":material/date_range:")
 
 # lista
@@ -49,12 +60,25 @@ previa_financeira_page = st.Page(
     "pages/6Previa_Financeira.py", title="Previa Financeira", icon=":material/wallet:"
 )
 
-# Trocas e Devoluções
-trocas_page = st.Page(
-    "pages/jira.py",
-    title="Trocas e Devolucoes",
-    icon=":material/swap_horizontal_circle:",
+# Relatórios
+Faturamento = st.Page(
+    "pages/faturamento.py",
+    title="Faturamento",
+    icon=":material/universal_currency_alt:",
 )
+
+CMV = st.Page("pages/cmv.py", title="CMV", icon=":material/bar_chart:")
+
+Evolucao_Vendas = st.Page(
+    "pages/Evolucao_Vendas.py",
+    title="Evolução de Vendas",
+    icon=":material/work:",
+)
+
+resultados = st.Page(
+    "pages/AR.py", title="Apresentação Resultado", icon=":material/area_chart:"
+)
+
 
 # logistica
 print_guia_page = st.Page(
@@ -78,6 +102,10 @@ pages = {
     "Lista": [lista_loja_page, lista_atacado_page],
     "Financeiro": [previa_financeira_page],
 }
+
+
+if st.session_state.perfil.get("role") == "administrador":
+    pages["Relatórios"] = [Faturamento, CMV, Evolucao_Vendas, resultados]
 
 # --- CONFIGURAÇÃO PAGINA ---
 pg = st.navigation(pages, position="top")
