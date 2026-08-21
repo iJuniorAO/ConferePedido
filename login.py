@@ -148,6 +148,8 @@ if st.session_state.user is None:  # SEM LOGIN
                 if usuario:
                     st.session_state.user = usuario.user
                     st.session_state.session = usuario.session
+                    perfil = buscar_perfil_bd(st.session_state.user.id)
+                    st.session_state.perfil = perfil
                     st.rerun()
     with tab_cadastro:
         st.write("Em desenvolvimento...")
@@ -181,13 +183,15 @@ if st.session_state.user is None:  # SEM LOGIN
                 st.success("E-mail Enviado")
 
 else:  # LOGADO
-    perfil = buscar_perfil_bd(st.session_state.user.id)
-    st.session_state.perfil = perfil
+    # perfil = buscar_perfil_bd(st.session_state.user.id)
+    # st.session_state.perfil = perfil
+    perfil = st.session_state.perfil
 
     with st.sidebar:
         if st.button("Sair do Sistema"):
             supabase.auth.sign_out()
             st.session_state.user = None
+            st.session_state.perfil = {"role": "client"}
             st.rerun()
 
         st.markdown(f"### :blue[{perfil['nome']}] !")
@@ -196,6 +200,7 @@ else:  # LOGADO
     if st.button("Sair do Sistema"):
         supabase.auth.sign_out()
         st.session_state.user = None
+        st.session_state.perfil = {"role": "client"}
         st.rerun()
 
     if perfil["status"] == "pendente":
