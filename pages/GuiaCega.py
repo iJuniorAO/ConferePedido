@@ -242,7 +242,6 @@ df_log = layout_guia_cega(resposta_xml)
 if selecao_conf_cega:
     st.table(
         df_log,
-        border="horizontal",
         width="stretch",
     )
 else:

@@ -143,7 +143,7 @@ def layout_guia_cega(resposta_xml):
         [data-testid="stTable"] td {
             color: #111111 !important;
             font-weight: 500 !important;
-            border-bottom: 1px solid #666666 !important;
+            border: 1px dotted #d3d3d3 !important;
         }
     }
     </style>
