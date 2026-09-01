@@ -131,6 +131,26 @@ def pandas_ler_excel(caminho_arquivo, colunas=None):
 # Guia Cega Layout
 def layout_guia_cega(resposta_xml):
 
+    css_contraste_tabela = """
+    <style>
+        /* Estilização de alto contraste para st.table (tabelas estáticas) */
+        [data-testid="stTable"] th {
+            background-color: #F2F2F2 !important;
+            color: #000000 !important;
+            font-weight: 800 !important;
+            border-bottom: 2px solid #000000 !important;
+        }
+        [data-testid="stTable"] td {
+            color: #111111 !important;
+            font-weight: 500 !important;
+            border-bottom: 1px solid #666666 !important;
+        }
+    }
+    </style>
+    """
+
+    st.markdown(css_contraste_tabela, unsafe_allow_html=True)
+
     df_log = resposta_xml["df"][["Codigo Fornecedor", "Descrição"]].copy()
     df_log = df_log.rename(columns={"Codigo Fornecedor": "Cod Forn."})
     df_log.index = resposta_xml["df"]["Item"]

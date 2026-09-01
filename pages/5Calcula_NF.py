@@ -713,7 +713,7 @@ if not pendencia_calculo:
     )
 
 st.divider()
-layout_secundario = st.toggle("Layout Secundário")
+layout_secundario = st.toggle("Layout Secundário", value=True)
 
 df_log = layout_guia_cega(resposta_xml)
 

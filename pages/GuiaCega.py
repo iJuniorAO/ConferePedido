@@ -235,7 +235,7 @@ if not uploaded_file:
 resposta_xml = processa_XML(uploaded_file)
 
 st.divider()
-selecao_conf_cega = st.toggle("Layout Secundário")
+selecao_conf_cega = st.toggle("Layout Secundário", value=True)
 
 df_log = layout_guia_cega(resposta_xml)
 
