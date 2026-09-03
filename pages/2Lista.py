@@ -38,39 +38,39 @@ COLUNAS_PRODUTOS = [
 ]
 COLUNAS_PRODUTOS_EXTRA = ["CodProduto", "Fam", "ListaCodCaract", "DescComplementar"]
 GRUPO = ["SECO", "CONG", "REFR", "PESO"]
-FORNECEDORES = marcas = [
-    "ATALAIA",
-    "AYMORE",
-    "BELINHO",
-    "CIDINHA",
-    "DONDON",
-    "ELMA CHIPS",
-    "FINI",
-    "FRUTTBOM",
-    "FUGINI",
-    "HELLMANNS",
-    "ITAMBE",
-    "KIBON",
-    "LOBITS",
-    "MAMMA DALVA",
-    "MAMMAMIA",
-    "MARICOTA",
-    "MAVI",
-    "MINAS MAIS",
-    "NESTLE",
-    "NINHO",
-    "PALHA LEVE",
-    "PERDIGAO",
-    "PORTO ALEGRE",
-    "PULSI",
-    "RENATA",
-    "SADIA",
-    "SEARA",
-    "TREVO",
-    "UAI",
-    "UNIBABY",
-    "YPE",
-]
+# FORNECEDORES = marcas = [
+#     "ATALAIA",
+#     "AYMORE",
+#     "BELINHO",
+#     "CIDINHA",
+#     "DONDON",
+#     "ELMA CHIPS",
+#     "FINI",
+#     "FRUTTBOM",
+#     "FUGINI",
+#     "HELLMANNS",
+#     "ITAMBE",
+#     "KIBON",
+#     "LOBITS",
+#     "MAMMA DALVA",
+#     "MAMMAMIA",
+#     "MARICOTA",
+#     "MAVI",
+#     "MINAS MAIS",
+#     "NESTLE",
+#     "NINHO",
+#     "PALHA LEVE",
+#     "PERDIGAO",
+#     "PORTO ALEGRE",
+#     "PULSI",
+#     "RENATA",
+#     "SADIA",
+#     "SEARA",
+#     "TREVO",
+#     "UAI",
+#     "UNIBABY",
+#     "YPE",
+# ]
 link_produto = st.secrets["onedrive"]["links"]["produto"]
 link_produto_extra = st.secrets["onedrive"]["links"]["produto_extra"]
 desativa_manual = False
@@ -177,11 +177,7 @@ if (f_produto and f_extra) or desativa_manual:
         ]
 
         # Cria coluna de fornecedores
-        padrao = "|".join(FORNECEDORES)
-        df["Fornecedor"] = df["Descricao"].str.extract(
-            f"({padrao})", flags=re.IGNORECASE, expand=False
-        )
-        df["Fornecedor"] = df["Fornecedor"].fillna("Outros")
+        df["Fornecedor"] = df["Descricao"].str.split().str[-3]
 
         # Cria nova coluna de tipo
         if False:
