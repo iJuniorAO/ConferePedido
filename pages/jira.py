@@ -173,7 +173,7 @@ with aba_board:
     titulos = [
         ":material/Edit: A fazer",
         ":material/Barcode: Validação NFE",
-        ":material/Send: Envio Produto",
+        ":material/Send: Ordem de Coleta",
         ":material/Group: Negociação Fornecedor",
         ":material/Check: Concluído",
     ]
@@ -187,7 +187,7 @@ with aba_board:
     status_map = {
         "Aberto": col_todo,
         "Validação NFE": col_nfe,
-        "Envio Produto": col_envio,
+        "Ordem de Coleta": col_envio,
         "NEGOCIAÇÃO FORNECEDOR": col_fornecedor,
         "Concluído (reposição)": col_done,
         "Concluído (prejuízo)": col_done,
@@ -276,8 +276,8 @@ with aba_board:
                 st.error(f"Erro ao processar a busca no Jira: {e}")
 
     with aba_coleta:
-        # Filtra apenas as tarefas com status "Envio Produto"
-        df_coleta = df[df["status"] == "Envio Produto"].copy()
+        # Filtra apenas as tarefas com status "Ordem de Coleta"
+        df_coleta = df[df["status"] == "Ordem de Coleta"].copy()
 
         if not df_coleta.empty:
             st.markdown("# Todas Coletas")
@@ -346,7 +346,7 @@ with aba_board:
                 # )
         else:
             st.success(
-                "Nenhuma tarefa no status 'Envio Produto' para gerar ordens de coleta."
+                "Nenhuma tarefa no status 'Ordem de Coleta' para gerar ordens de coleta."
             )
 
     # --- ABA 2: CRIAR TASKS ---
