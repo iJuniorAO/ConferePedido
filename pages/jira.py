@@ -163,8 +163,11 @@ def renderizar_board(df: pd.DataFrame):
                     with st.container(border=True):
                         motivo_str = str(row["motivo"]).upper() if row["motivo"] else ""
                         st.markdown(f"##### **{row['key']}** | {motivo_str}")
-                        st.markdown(f"**LOJA:** {row['loja']}")
-                        st.markdown(f"**FORNECEDOR:** {row['fornecedor']}")
+                        cardCol1, cardCol2 = st.columns(2)
+                        with cardCol1:
+                            st.markdown(f"**LOJA:** {row['loja']}")
+                        with cardCol2:
+                            st.markdown(f"**Aberto em:** {row['criado_em']}")
                         st.markdown(
                             f"**{row['cod_produto']}** | {row['qtd_produto']}x {row['desc_produto']}"
                         )
@@ -193,7 +196,7 @@ def renderizar_painel_detalhado(
 
             total_issues = getattr(issues, "total", len(issues))
 
-            st.markdown(f"## Ultimas Tarefas ({total_issues})")
+            st.markdown(f"## Ultimas Tarefas :blue[({total_issues})]")
 
             if issues:
                 for issue in issues:
@@ -217,7 +220,10 @@ def renderizar_painel_detalhado(
                         or "*Sem descrição informada.*"
                     )
 
-                    titulo_card = f"**{issue.key}** - *{status_name}*"
+                    if status_name == "Aberto":
+                        titulo_card = f":red[**{issue.key}** - *{status_name}*]"
+                    else:
+                        titulo_card = f"**{issue.key}** - *{status_name}*"
                     with st.expander(titulo_card):
                         col1, col2 = st.columns(2)
                         with col1:
