@@ -167,8 +167,7 @@ if not df.empty:
 
     # --- ABA BOARD: VISUALIZAÇÃO EM COLUNAS ---
 with aba_board:
-    st.markdown(f"# :blue[[{len(df)}]] Quadro")
-    col_todo, col_nfe, col_envio, col_fornecedor, col_done = st.columns(5)
+    st.markdown(f"# :blue[[{len(df)}] :material/dashboard:] Quadro")
 
     titulos = [
         ":material/Edit: A fazer",
@@ -177,32 +176,32 @@ with aba_board:
         ":material/Group: Negociação Fornecedor",
         ":material/Check: Concluído",
     ]
-    lista_colunas = [col_todo, col_nfe, col_envio, col_fornecedor, col_done]
 
-    for titulo, coluna in zip(titulos, lista_colunas):
-        with coluna:
-            st.markdown(f"### {titulo}")
-
-    # Mapeamento de Status do seu código original
-    status_map = {
-        "Aberto": col_todo,
-        "Validação NFe": col_nfe,
-        "Ordem de Coleta": col_envio,
-        "Negociação Fornecedor": col_fornecedor,
-        "Concluído (reposição)": col_done,
-        "Concluído (prejuízo)": col_done,
-        "Concluído (estoque)": col_done,
-        "Troca Recusada": col_done,
+    # Mapeamento de Status para o índice da coluna correspondente
+    status_col_index = {
+        "Aberto": 0,
+        "Validação NFe": 1,
+        "Ordem de Coleta": 2,
+        "Negociação Fornecedor": 3,
+        "Concluído (reposição)": 4,
+        "Concluído (prejuízo)": 4,
+        "Concluído (estoque)": 4,
+        "Troca Recusada": 4,
     }
 
-    # Se o DataFrame não estiver vazio, renderiza os cards
+    # Agrupa os cards por coluna previamente para calcular a quantidade antes de renderizar
+    cards_por_coluna = [[] for _ in range(5)]
     if not df.empty:
         for _, row in df.iterrows():
-            status_name = row["status"]
-            # Determina a coluna alvo (padrão col_todo se não mapeado)
-            col_alvo = status_map.get(status_name, col_todo)
+            col_idx = status_col_index.get(row["status"], 0)
+            cards_por_coluna[col_idx].append(row)
 
-            with col_alvo:
+    lista_colunas = st.columns(5)
+
+    for titulo, coluna, cards in zip(titulos, lista_colunas, cards_por_coluna):
+        with coluna:
+            st.markdown(f"### {titulo} ({len(cards)})")
+            for row in cards:
                 with st.container(border=True):
                     # Forçando conversão para string para evitar erros de renderização caso venha nulo
                     motivo_str = str(row["motivo"]).upper() if row["motivo"] else ""
