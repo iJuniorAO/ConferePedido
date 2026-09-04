@@ -48,7 +48,7 @@ jira = conectar_jira()
 def buscar_dados_jira(jql):
     try:
         # Busca as issues (ajuste o maxResults se necessário)
-        issues = jira.search_issues(jql, maxResults=100)
+        issues = jira.search_issues(jql, maxResults=False)
 
         dados = []
         for issue in issues:
@@ -167,12 +167,12 @@ if not df.empty:
 
     # --- ABA BOARD: VISUALIZAÇÃO EM COLUNAS ---
 with aba_board:
-    st.markdown("# Quadro")
+    st.markdown(f"# :blue[[{len(df)}]] Quadro")
     col_todo, col_nfe, col_envio, col_fornecedor, col_done = st.columns(5)
 
     titulos = [
         ":material/Edit: A fazer",
-        ":material/Barcode: Validação NFE",
+        ":material/Barcode: Validação NFe",
         ":material/Send: Ordem de Coleta",
         ":material/Group: Negociação Fornecedor",
         ":material/Check: Concluído",
@@ -186,9 +186,9 @@ with aba_board:
     # Mapeamento de Status do seu código original
     status_map = {
         "Aberto": col_todo,
-        "Validação NFE": col_nfe,
+        "Validação NFe": col_nfe,
         "Ordem de Coleta": col_envio,
-        "NEGOCIAÇÃO FORNECEDOR": col_fornecedor,
+        "Negociação Fornecedor": col_fornecedor,
         "Concluído (reposição)": col_done,
         "Concluído (prejuízo)": col_done,
         "Concluído (estoque)": col_done,
