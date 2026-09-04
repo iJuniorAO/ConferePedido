@@ -2,8 +2,7 @@ import streamlit as st
 import pandas as pd
 from jira import JIRA
 from datetime import datetime
-
-# from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List
 from utils import validar_acesso
 
 # ==========================================
