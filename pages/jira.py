@@ -301,6 +301,135 @@ def renderizar_ordens_coleta(df: pd.DataFrame):
         st.divider()
 
 
+def renderizar_dashboard(df: pd.DataFrame):
+    """
+    Renderiza o dashboard com os KPIs e gráficos da operação.
+    """
+    if df.empty:
+        st.warning("Não há dados suficientes para gerar os indicadores.")
+        return
+
+    st.markdown("# :material/monitoring: Dashboard de Indicadores")
+
+    # Cálculos dos KPIs
+    df_aprovados = df[
+        df["status"].astype(str).str.contains("Concluído", case=False, na=False)
+    ]
+    df_rejeitados = df[
+        df["status"]
+        .astype(str)
+        .str.contains("Recusada|Rejeitada", case=False, na=False)
+    ]
+
+    qtd_aprovados = len(df_aprovados)
+    qtd_rejeitados = len(df_rejeitados)
+
+    contagem_lojas = df["loja"].value_counts()
+
+    loja_mais_problemas = "-"
+    loja_menos_problemas = "-"
+    if not contagem_lojas.empty:
+        loja_mais_problemas = str(contagem_lojas.idxmax())
+        loja_menos_problemas = str(contagem_lojas.idxmin())
+
+    contagem_aprovados = df_aprovados["loja"].value_counts()
+    loja_mais_aprovados = "-"
+    loja_menos_aprovados = "-"
+    if not contagem_aprovados.empty:
+        loja_mais_aprovados = str(contagem_aprovados.idxmax())
+        loja_menos_aprovados = str(contagem_aprovados.idxmin())
+
+    contagem_rejeitados = df_rejeitados["loja"].value_counts()
+    loja_mais_rejeitados = "-"
+    loja_menos_rejeitados = "-"
+
+    if not contagem_rejeitados.empty:
+        loja_mais_rejeitados = str(contagem_rejeitados.idxmax())
+        loja_menos_rejeitados = str(contagem_rejeitados.idxmin())
+
+    contagem_motivos = df["motivo"].value_counts()
+    motivo_mais_comum = contagem_motivos.idxmax() if not contagem_motivos.empty else "-"
+
+    # Exibição dos Métricas em colunas
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Tickets", len(df))
+    c2.metric(
+        "Tickets Aprovados",
+        qtd_aprovados,
+        delta=f"{qtd_aprovados / len(df):.2%}",
+        delta_color="off",
+        delta_arrow="off",
+    )
+    c3.metric(
+        "Tickets Rejeitados",
+        qtd_rejeitados,
+        delta=f"{qtd_rejeitados / len(df):.2%}",
+        delta_color="off",
+        delta_arrow="off",
+    )
+    c4.metric(
+        "Motivo + Comum",
+        str(motivo_mais_comum),
+        delta=f"{contagem_motivos.max()}",
+        delta_color="inverse",
+        delta_arrow="off",
+    )
+
+    c5, c6, c7, c8 = st.columns(4)
+    c5.metric(
+        "Loja + Problemas",
+        loja_mais_problemas,
+        delta=f"{contagem_lojas.max()}",
+        delta_color="inverse",
+        delta_arrow="off",
+    )
+
+    c6.metric(
+        "Loja - Problemas",
+        loja_menos_problemas,
+        delta=f"{contagem_lojas.min()}",
+        delta_arrow="off",
+    )
+
+    c7.metric(
+        "Loja + Aprovados",
+        loja_mais_aprovados,
+        delta=f"{contagem_aprovados.max()}",
+        delta_color="off",
+        delta_arrow="off",
+    )
+    c8.metric(
+        "Loja + Rejeitados",
+        loja_mais_rejeitados,
+        delta=f"{contagem_rejeitados.max()}",
+        delta_color="inverse",
+        delta_arrow="off",
+    )
+
+    st.divider()
+
+    # Gráficos
+    g1, g2 = st.columns(2)
+
+    with g1:
+        st.markdown("### Tickets por Mês")
+        df_mes = df.copy()
+        df_mes["mes"] = (
+            pd.to_datetime(df_mes["criado_em"], errors="coerce")
+            .dt.to_period("M")
+            .astype(str)
+        )
+        tickets_por_mes = df_mes["mes"].value_counts().sort_index()
+        st.bar_chart(tickets_por_mes)
+
+    with g2:
+        st.markdown("### Problemas por Loja")
+        st.bar_chart(contagem_lojas, sort="-count")
+
+    st.markdown("### Motivos mais frequentes")
+    st.bar_chart(contagem_motivos, sort="-count")
+
+
 # ==========================================
 # FLUXO PRINCIPAL (MAIN EXECUTION)
 # ==========================================
@@ -326,11 +455,12 @@ st.markdown(
 st.divider()
 
 if not df_jira.empty:
-    aba_board, aba_view, aba_coleta = st.tabs(
+    aba_board, aba_view, aba_coleta, aba_dashboard = st.tabs(
         [
             ":material/Bar_Chart: Quadro (Board)",
             ":material/Docs: Painel de Tarefas (detalhado)",
             ":material/Package: Ordem Coleta",
+            ":material/monitoring: Dashboard",
         ]
     )
 
@@ -342,5 +472,8 @@ if not df_jira.empty:
 
     with aba_coleta:
         renderizar_ordens_coleta(df_jira)
+
+    with aba_dashboard:
+        renderizar_dashboard(df_jira)
 
 st.divider()
