@@ -541,6 +541,7 @@ if ((f_produto and f_extra) or desativa_manual) and f_pedido or f_pedido_atacado
                         data=output.getvalue(),
                         file_name=f"{AGORA.strftime("%Y%m%d_%HH%MM")}_{loja_pedido}_{tipo}.txt",
                         mime="text/plain",
+                        on_click="ignore",
                     )
                     salvar_pedido_banco_dados(loja_pedido, tipo, output, f_pedido)
                 else:
