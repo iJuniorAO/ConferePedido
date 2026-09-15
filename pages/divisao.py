@@ -122,6 +122,7 @@ def criar_downloads_por_categoria(df_txt_dict, categoria):
             file_name=f"DIVISAO_{loja}_{categoria}.txt",
             mime="text/plain",
             key=f"{categoria}_{loja}",
+            on_click="ignore",
         )
 
 
